@@ -20,6 +20,7 @@
 - Operator token reissue + deactivate/reactivate in /admin
 - Portal wa.me "WhatsApp customer" links on confirmed requests only
 - Landing: `Call +91 7965861153` CTA top + separate `WhatsApp +91 9400354625` operator CTA bottom (KAAYAL_PHONE_NUMBER / KAAYAL_WHATSAPP_NUMBER in .env)
+- WhatsApp demo onboarding: `POST /api/ops/wa_onboard` + `wa-bot/` open-wa sidecar (QR pair 9400354625 phone, `npm start`, see `docs/wa-demo.md`). Unofficial API — demo only
 
 ## Pending — DEVIN (say go)
 4. Process supervision: launchd for uvicorn + `sudo cloudflared service install`
