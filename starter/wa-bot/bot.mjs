@@ -325,9 +325,41 @@ function start(client) {
         const { phone, text } = JSON.parse(body);
         const digits = String(phone || "").replace(/\D/g, "");
         if (!digits || !text) throw new Error("bad payload");
-        const numberId = await client.getNumberId(digits);
-        if (!numberId) throw new Error("number_not_on_whatsapp");
-        await sendText(numberId._serialized, String(text).slice(0, 2000));
+        // Plain-text send built on the raw WA modules — the same calls
+        // client.sendMessage makes, minus the broken WWebJS injection
+        // layer. Works for new chats too (findOrCreateLatestChat).
+        const result = await client.pupPage.evaluate(
+          async (jid, body) => {
+            const R = window.require;
+            const chatWid = R("WAWebWidFactory").createWid(jid);
+            let chat = R("WAWebCollections").Chat.get(chatWid);
+            if (!chat) {
+              chat = (await R("WAWebFindChatAction").findOrCreateLatestChat(chatWid))?.chat;
+            }
+            if (!chat) return "no_chat";
+            const { getMaybeMeLidUser, getMaybeMePnUser } = R("WAWebUserPrefsMeUser");
+            const from = chat.id.isLid?.() ? getMaybeMeLidUser() : getMaybeMePnUser();
+            const newId = await R("WAWebMsgKey").newId();
+            const newMsgKey = new (R("WAWebMsgKey"))({
+              from, to: chat.id, id: newId, selfDir: "out",
+            });
+            const ephemeralFields =
+              R("WAWebGetEphemeralFieldsMsgActionsUtils").getEphemeralFields(chat);
+            const message = {
+              id: newMsgKey, ack: 0, body, from, to: chat.id, local: true,
+              self: "out", t: parseInt(Date.now() / 1000),
+              isNewMsg: true, type: "chat", ...ephemeralFields,
+            };
+            if (message.__x_id) delete message.__x_id;
+            const [msgPromise] = R("WAWebSendMsgChatAction").addAndSendMsgToChat(chat, message);
+            await msgPromise;
+            return "sent";
+          },
+          `${digits}@c.us`,
+          String(text).slice(0, 2000),
+        );
+        console.log("raw send result:", result);
+        if (result !== "sent") throw new Error(String(result));
         res.writeHead(200, { "content-type": "application/json" }).end('{"ok":true}');
       } catch (err) {
         console.log("/send failed:", err?.message || err);
@@ -373,12 +405,15 @@ const boot = (via) => {
   start(client);
 };
 client.on("ready", () => boot("ready"));
+let reinjected = false;
 client.on("authenticated", () => {
   console.log("wa-bot authenticated");
+  if (reinjected) return; // inject() re-emits authenticated — only arm once
+  reinjected = true;
   // Upstream race (issue 201987): 'ready' is gated on a hasSynced event that
   // can be missed on warm reinjects. Poll the socket state directly and
   // start once the session reports CONNECTED.
-  let reinjected = false;
+  let injecting = false;
   const iv = setInterval(async () => {
     try {
       if ((await client.getState()) !== "CONNECTED") return;
@@ -391,15 +426,12 @@ client.on("authenticated", () => {
       if (storeReady) {
         clearInterval(iv);
         boot("state=CONNECTED fallback");
-      } else if (!reinjected) {
-        reinjected = true;
-        console.log("WWebJS missing — re-running inject()");
-        try {
-          await client.inject();
-          console.log("inject() completed");
-        } catch (e) {
-          console.log("inject() failed:", e?.message || e);
-        }
+      } else {
+        // WWebJS never materializes on this WA Web build (upstream inject is
+        // broken). Our send path uses raw window.require modules directly —
+        // it doesn't need WWebJS at all, so boot anyway.
+        clearInterval(iv);
+        boot("state=CONNECTED fallback (raw-require send path)");
       }
     } catch (e) {
       console.log("state poll not ready:", e?.message || e);
