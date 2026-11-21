@@ -55,8 +55,8 @@ def notify_booking_request(
         phone,
         f"New booking request for {boat_name}!\n"
         + " · ".join(bits)
-        + f"\nReply {request_id} to confirm and get the caller's number, "
-        "or handle it in your portal.",
+        + f"\nReply {request_id} (or YES/NO to this message) to confirm and "
+        "get the caller's number, or handle it in your portal.",
     )
 
 

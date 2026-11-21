@@ -83,6 +83,7 @@ const HELP =
   "Kaayal operator commands:\n" +
   "• REQUESTS — list pending booking requests\n" +
   "• REQ-XXXX-XXXX — confirm a request (sends you the caller's number)\n" +
+  "  (or reply YES/NO to the request ping itself)\n" +
   "• DECLINE REQ-XXXX-XXXX — decline it\n" +
   "• PAUSE / RESUME — stop/start being reachable to callers\n" +
   "• HELP — this list";
@@ -138,6 +139,22 @@ function start(client) {
       }
       if (!text) return;
 
+      // Swipe-reply to one of our own booking pings: a bare yes/no/confirm/
+      // decline stands in for "REQ-xxxx" / "DECLINE REQ-xxxx". Only bot-authored
+      // quotes count, and only when the quote carries exactly one REQ id —
+      // replying YES to the multi-item REQUESTS list must not pick one at random.
+      if (msg.hasQuotedMsg && /^(yes|no|confirm|decline)$/i.test(text)) {
+        const quoted = await msg.getQuotedMessage().catch(() => null);
+        const ids = quoted?.fromMe
+          ? [...new Set(
+              [...(quoted.body?.matchAll(/\bREQ-\d{3,}-[0-9a-f]{2,}\b/gi) ?? [])]
+                .map((m) => m[0].toUpperCase()),
+            )]
+          : [];
+        if (ids.length === 1)
+          text = (/^(no|decline)$/i.test(text) ? "DECLINE " : "") + ids[0];
+      }
+
       // Operator commands — checked before the onboarding flow; a 404
       // (unknown number) falls through to onboarding for list-type commands.
       const cmd = text.trim().toUpperCase();
@@ -157,12 +174,12 @@ function start(client) {
                 `Caller: ${c.customer_name} — ${c.customer_phone}\n` +
                 `${c.boat_name || "—"}${c.preferred_date ? ` · ${c.preferred_date}` : ""}${c.group_size ? ` · ${c.group_size} people` : ""}\n` +
                 (c.notify_channel === "call"
-                  ? "We called them with the good news — they're expecting your call."
+                  ? "Our demo dialer rang them with the good news — they're expecting your call."
                   : c.notify_channel === "whatsapp"
                     ? "Couldn't reach them by call, so they were WhatsApped the confirmation — expecting your call."
                     : "Confirmation call is queued — do call their number in the meantime.")
               : c.status === "declined"
-                ? `${c.request_id} declined. The caller can leave a callback request instead.`
+                ? `${c.request_id} declined. Nothing was sent to the caller.`
                 : `${c.request_id} is already ${c.status} — nothing to do.`,
         );
         return;
@@ -184,7 +201,7 @@ function start(client) {
                     `${x.group_size ? ` · ${x.group_size} people` : ""}`
                   )
                   .join("\n") +
-                "\n\nReply with a request ID to confirm, or DECLINE <id>."
+                "\n\nReply REQ-xxxx to confirm, or DECLINE REQ-xxxx."
               : "No pending requests right now."
           );
           return;
@@ -198,8 +215,8 @@ function start(client) {
           await sendText(
             chatId,
             r.reachable
-              ? "You're reachable again — callers can reach you and queued callbacks will fire."
-              : "You're now unreachable — callers will be offered a callback instead."
+              ? "You're reachable again — callers can reach you, and queued callbacks will go out."
+              : "You're now marked unreachable — callers will be offered a callback instead."
           );
           return;
         }
@@ -218,7 +235,7 @@ function start(client) {
             chatId,
             known.portal_url
               ? `Welcome back, ${known.name}!\n\n` +
-                  `Fresh portal link (the old one just died):\n${known.portal_url}`
+                  `Fresh portal link (your old one has expired):\n${known.portal_url}`
               : `You're already registered, ${known.name} — still *pending verification*. ` +
                   "We'll WhatsApp you the portal link once the owner approves."
           );
@@ -230,7 +247,7 @@ function start(client) {
         s.name = text;
         await sendText(
           chatId,
-          `Thanks ${text}! Now send your boat as *name, type, embarkation* ` +
+          `Thanks ${text}! Now send your boat as *name, boat type, boarding point* ` +
             '(e.g. "Queen, houseboat, Punnamada") — or reply "skip" if you\'ll add boats later.'
         );
         s.step = 2;
@@ -289,7 +306,7 @@ function start(client) {
     } catch (err) {
       console.error("message handling failed:", err);
       try {
-        await sendText(msg.chatId, "Sorry, something went wrong on our side — please try again in a moment.");
+        await sendText(chatIdOf(msg), "Sorry, something went wrong on our side — please try again in a moment.");
       } catch {
         /* nothing else we can do */
       }
