@@ -120,13 +120,33 @@ button.danger:hover {{ background: #F3E3E1; color: #7A2E2E; border-color: #7A2E2
 .small {{ font-size: .85rem; }}
 .rule {{ border: 0; border-top: 1px solid var(--line); margin: 2.5rem 0; }}
 ol ::marker {{ color: var(--teal); font-family: {DISPLAY_FONT}; }}
-@media (prefers-reduced-motion: reduce) {{
-  * {{ animation: none !important; transition: none !important; }}
+.lead {{ font-size: 1.15rem; max-width: 34rem; }}
+.kick {{
+  letter-spacing: .14em; text-transform: uppercase; font-size: .72rem;
+  font-weight: 600; color: #8A5F33; margin: 0 0 .2rem;
 }}
+html {{ scroll-behavior: smooth; }}
+section[id] {{ scroll-margin-top: 5.5rem; margin-top: 3.25rem; }}
+@keyframes ping {{
+  0% {{ box-shadow: 0 0 0 0 rgba(38, 122, 115, .32); }}
+  100% {{ box-shadow: 0 0 0 20px rgba(38, 122, 115, 0); }}
+}}
+.sonar {{ animation: ping 2.8s ease-out infinite; }}
+.sonar:hover {{ animation-play-state: paused; }}
+@keyframes ripple {{
+  0% {{ transform: scale(.75); opacity: .55; }}
+  100% {{ transform: scale(1.7); opacity: 0; }}
+}}
+.rip {{
+  transform-box: fill-box; transform-origin: center; opacity: 0;
+  animation: ripple 3.8s ease-out infinite;
+}}
+.rip2 {{ animation-delay: 1.9s; }}
 .ml {{ font-family: 'Noto Sans Malayalam', {BODY_FONT}; }}
 .topnav {{
   display: flex; align-items: baseline; gap: 1.15rem; flex-wrap: wrap;
   border-bottom: 1px solid var(--line); padding-bottom: .85rem; margin-bottom: 2.25rem;
+  position: sticky; top: 0; z-index: 5; background: var(--ivory); padding-top: .9rem;
 }}
 .topnav .wordmark {{
   font-family: {DISPLAY_FONT}; font-size: 1.35rem; color: var(--lagoon);
@@ -155,6 +175,7 @@ code {{
 }}
 @media (prefers-reduced-motion: reduce) {{
   *, *::before, *::after {{ transition: none !important; animation: none !important; }}
+  html {{ scroll-behavior: auto; }}
 }}
 """
 
@@ -176,15 +197,45 @@ try {
     inView("main h2, main h3, main .card, main ol li",
       (el) => animate(el, {opacity: [0, 1], y: [12, 0]}, {duration: .45, easing: ease}),
       {amount: .25});
-    document.querySelectorAll("svg.contours path").forEach((p, i) => {
-      const len = p.getTotalLength();
-      p.style.strokeDasharray = len;
-      animate(p, {strokeDashoffset: [len, 0]},
-              {duration: 2.0, delay: i * .15, easing: "ease-in-out"});
-      animate(p, {y: [0, i % 2 ? 5 : -5, 0]},
-              {duration: 6 + i * 1.1, delay: i * .4, repeat: Infinity,
-               easing: "ease-in-out"});
+    document.querySelectorAll("svg.contours").forEach((svg) => {
+      const paths = svg.querySelectorAll("path");
+      paths.forEach((p, i) =>
+        animate(p, {y: [0, i % 2 ? 5 : -5, 0]},
+                {duration: 6 + i * 1.1, delay: i * .4, repeat: Infinity,
+                 easing: "ease-in-out"}));
+      inView(svg, () => paths.forEach((p, i) => {
+        const len = p.getTotalLength();
+        p.style.strokeDasharray = len;
+        animate(p, {strokeDashoffset: [len, 0]},
+                {duration: 1.8, delay: i * .12, easing: "ease-in-out"});
+      }), {amount: .4});
     });
+    const scene = document.querySelector("svg.scene");
+    if (scene) {
+      scene.querySelectorAll("path").forEach((p, i) => {
+        try {
+          const len = p.getTotalLength();
+          p.style.strokeDasharray = len;
+          animate(p, {strokeDashoffset: [len, 0]},
+                  {duration: 2.4, delay: .15 + i * .09, easing: "ease-in-out"});
+        } catch (e) {}
+      });
+      scene.querySelectorAll(".waves path").forEach((p, i) =>
+        animate(p, {y: [0, i % 2 ? 4 : -4, 0]},
+                {duration: 5.5 + i, delay: i * .5, repeat: Infinity,
+                 easing: "ease-in-out"}));
+      const boat = scene.querySelector(".boat");
+      if (boat) {
+        animate(boat, {x: [0, 26, 0]},
+                {duration: 18, repeat: Infinity, easing: "ease-in-out"});
+        animate(boat, {y: [0, -4, 0]},
+                {duration: 4.6, repeat: Infinity, easing: "ease-in-out"});
+      }
+      const birds = scene.querySelector(".birds");
+      if (birds)
+        animate(birds, {x: [0, -36, 0]},
+                {duration: 22, repeat: Infinity, easing: "ease-in-out"});
+    }
   }
 } catch (e) { /* decoration only — page is complete without it */ }
 </script>

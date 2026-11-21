@@ -14,6 +14,11 @@
 - Lighthouse (mobile, live): perf 88 / a11y 100 / best-practices 100 / SEO 100.
   LCP 2.9s, CLS 0.008, TBT 0.
 - 117 tests green.
+- Consolidated to a single-page site: all public content lives at `/` in
+  anchored sections (#paayal #boats #explore #before-you-book #dtpc #faq
+  #privacy); old page URLs 301 to their anchors. Hand-drawn animated
+  kettuvallam hero scene + contour dividers via motion.dev (reduced-motion
+  safe, progressive enhancement). Sticky nav, smooth scroll.
 
 ## Live
 - `https://kaayal.glitchy.systems` — FastAPI via Cloudflare named tunnel `kaayal` (ID `9af85681-71d7-4370-a455-11f14d293d1b`) → `localhost:8000`
@@ -23,13 +28,13 @@
 - Tests: 113 pass (`cd starter && .venv/bin/python -m pytest -q`)
 - Lighthouse (mobile, home): perf 97, a11y 95
 - Env: `starter/.env` (gitignored): OPENAI_API_KEY, SARVAM_TOOL_SHARED_SECRET, ADMIN_TOKEN, KAAYAL_PHONE_NUMBER (+91 7965861153), KAAYAL_WHATSAPP_NUMBER (+91 9400354625), KAAYAL_PUBLIC_BASE_URL
-- Processes: uvicorn + cloudflared run unsupervised — die on reboot/logout. wa-bot needs `npm start` + paired phone
+- Processes: **migrating to docker compose** — `starter/compose.yaml` runs app + wa-bot + cloudflared with restart policies and named volumes (`kaayal-data` for SQLite, `wa-session` for the open-wa pairing). Runtime: colima via `brew services`. Once live, the native uvicorn/cloudflared/`npm start` are replaced by `docker compose up -d` in `starter/`. NOTE TO OTHER AGENTS: bot.mjs now exits on UNPAIRED/CONFLICT so the restart policy re-pairs instead of sitting dead.
 
 ## Pending — USER (blocking the live product)
 1. Sarvam dashboard → `starter/docs/sarvam-dashboard-setup.md`: register all 5 tools (incl. `create_callback_request`), paste Paayal checklist prompt, test each
 2. `/admin?t=<ADMIN_TOKEN>` → approve/verify operators + boats
 3. Live inbound calls in Malayalam + English (general Q, availability Q, inquiry, callback consent)
-4. wa-bot: `cd starter/wa-bot && npm start` + QR scan on the 9400354625 phone
+4. wa-bot: `cd starter && docker compose up -d` → `docker compose logs -f wa-bot` → QR scan on the 9400354625 phone (falls back to `cd starter/wa-bot && npm start` if containers aren't running)
 5. Answer Claude-pack questions: Q02 call recording/retention policy; Q03 Malayalam native reviewer; analytics tool choice (cookieless proposal needed — e.g. Plausible ≈₹800/mo or self-hosted Umami free)
 
 ## Done since last update
