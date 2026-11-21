@@ -12,10 +12,12 @@ the travel date, opt-outs honored, duplicates prevented, survives restarts.
 import logging
 import re
 import secrets
+import time
 from datetime import date, datetime, timedelta, timezone
 from typing import Protocol
 from zoneinfo import ZoneInfo
 
+import httpx
 from sqlmodel import Session, select
 
 from app.db import Boat, BookingRequest, CallbackAttempt, CallbackRequest, Operator, utcnow
@@ -91,20 +93,138 @@ class SimulatedProvider:
         return self.outcome, paayal + [{"who": "customer", "text": customer_line}, {"who": "paayal", "text": closer}]
 
 
+_SARVAM_CREATE = (
+    "https://apps.sarvam.ai/api/outbounds/v1/orgs/{org}/workspaces/{ws}/outbounds"
+)
+_SARVAM_ATTEMPTS = (
+    "https://apps.sarvam.ai/api/analytics/v1/{org}/{ws}/{app}/attempts"
+)
+
+
 class SarvamOutboundProvider:
-    """Prepared adapter for real Sarvam outbound calls — DISABLED until the
-    owner approves real calls/charges and supplies credentials + endpoint
-    details (see docs/sarvam-dashboard-setup.md). Not wired by default."""
+    """Real Sarvam Instant Outbound dialing — owner-approved 2026-11-22;
+    per-call charges apply. Enabled via OUTBOUND_PROVIDER=sarvam plus the
+    SARVAM_* settings.
+
+    place() creates the call carrying the callback context as agent variables,
+    then polls the analytics attempts API until the attempt resolves. A
+    connected call's outcome comes from the agent's callback_outcome variable;
+    a connected call without one maps to not_interested — never fakes a
+    booking inquiry. Polling means no inbound webhook endpoint is needed.
+    """
 
     name = "sarvam"
 
+    def __init__(self, settings) -> None:
+        self._s = settings
+        missing = [
+            f
+            for f in (
+                "sarvam_api_key", "sarvam_org_id", "sarvam_workspace_id",
+                "sarvam_outbound_app_id", "sarvam_outbound_app_version",
+                "sarvam_connection_id", "sarvam_agent_phone_number",
+            )
+            if getattr(settings, f) is None
+        ]
+        if missing:
+            raise RuntimeError(f"sarvam_outbound_not_configured: {', '.join(missing)}")
+
     def place(self, cb: CallbackRequest, context: dict) -> tuple[str, list[dict]]:
-        raise RuntimeError("sarvam_outbound_not_configured")
+        attempt_id = self._create(cb, context)
+        return self._resolve(attempt_id)
+
+    def _create(self, cb: CallbackRequest, context: dict) -> str:
+        s = self._s
+        resp = httpx.post(
+            _SARVAM_CREATE.format(org=s.sarvam_org_id, ws=s.sarvam_workspace_id),
+            headers={"X-API-Key": s.sarvam_api_key},
+            json={
+                "app_config": {
+                    "app_id": s.sarvam_outbound_app_id,
+                    "app_version": s.sarvam_outbound_app_version,
+                    "connection_config": {
+                        "connection_id": s.sarvam_connection_id,
+                        "agent_phone_number": s.sarvam_agent_phone_number,
+                    },
+                    "agent_variables": {
+                        "customer_name": cb.customer_name,
+                        "callback_reason": cb.reason,
+                        "what": context.get("what") or "",
+                        "request_ref": context.get("request_ref") or "",
+                        "operator_name": context.get("operator_name") or "",
+                    },
+                },
+                "user_config": {"user_phone_number": cb.customer_phone},
+            },
+            timeout=15,
+        )
+        resp.raise_for_status()
+        return resp.json()["attempt_id"]
+
+    def _resolve(self, attempt_id: str) -> tuple[str, list[dict]]:
+        deadline = time.monotonic() + self._s.sarvam_outbound_timeout_seconds
+        while True:
+            att = self._find_attempt(attempt_id)
+            status = ((att or {}).get("connectivity_status") or att.get("status") or "").lower()
+            if status == "connected":
+                vars_ = att.get("final_agent_variables") or att.get("agent_variables") or {}
+                var = vars_.get("callback_outcome")
+                outcome = var if var in ("interested", "not_interested", "no_answer") else "not_interested"
+                return outcome, _sarvam_transcript(att)
+            if status in ("no_answer", "busy", "failed", "not_connected", "unreachable") or att.get("ended_by"):
+                reason = att.get("failure_reason") or status or "not connected"
+                if reason == "NO_FAILURE_REASON":
+                    reason = status or "not connected"
+                return "no_answer", [{"who": "system", "text": f"sarvam {attempt_id}: {reason}"}]
+            if time.monotonic() > deadline:
+                return "no_answer", [{"who": "system", "text": f"sarvam {attempt_id}: unresolved after timeout"}]
+            time.sleep(15)
+
+    def _find_attempt(self, attempt_id: str) -> dict | None:
+        s = self._s
+        now = datetime.now(timezone.utc)
+        resp = httpx.get(
+            _SARVAM_ATTEMPTS.format(
+                org=s.sarvam_org_id, ws=s.sarvam_workspace_id,
+                app=s.sarvam_outbound_app_id,
+            ),
+            headers={"X-API-Key": s.sarvam_api_key},
+            params={
+                "start_datetime": (now - timedelta(hours=1)).isoformat(),
+                "end_datetime": (now + timedelta(hours=1)).isoformat(),
+                "sort_by": "attempted_at",
+                "sort_order": "desc",
+                "limit": 100,
+            },
+            timeout=15,
+        )
+        resp.raise_for_status()
+        items = resp.json()
+        if isinstance(items, dict):
+            items = items.get("attempts") or items.get("items") or items.get("data") or []
+        return next((a for a in items if a.get("attempt_id") == attempt_id), None)
+
+
+def _sarvam_transcript(att: dict) -> list[dict]:
+    """Normalize whatever the attempt record carries into [{who, text}]."""
+    turns = att.get("interaction_transcript") or []
+    out = [
+        {"who": t.get("who") or t.get("speaker") or "?", "text": t.get("text") or t.get("content") or ""}
+        for t in turns
+        if isinstance(t, dict)
+    ]
+    vars_ = att.get("final_agent_variables") or att.get("agent_variables") or {}
+    if vars_.get("call_summary"):
+        out.append({"who": "system", "text": f"summary: {vars_['call_summary']}"})
+    duration = att.get("duration") if att.get("duration") is not None else att.get("duration_in_seconds")
+    if duration is not None:
+        out.append({"who": "system", "text": f"duration={duration:.0f}s"})
+    return out
 
 
 def make_provider(settings) -> OutboundProvider:
     if getattr(settings, "outbound_provider", "simulator") == "sarvam":
-        return SarvamOutboundProvider()
+        return SarvamOutboundProvider(settings)
     return SimulatedProvider(getattr(settings, "sim_callback_outcome", "interested"))
 
 

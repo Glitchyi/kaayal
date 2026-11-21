@@ -28,8 +28,19 @@ class Settings(BaseSettings):
     kaayal_whatsapp_number: str | None = None
     # wa-bot send listener (compose internal only). Unset = no push on approval.
     wa_bot_url: str | None = None
-    # Callback engine: "simulator" (no real calls) or "sarvam" (stub — needs approval).
+    # Callback engine: "simulator" (no real calls) or "sarvam" (real dialing —
+    # owner-approved 2026-11-22; per-call charges apply).
     outbound_provider: str = "simulator"
+    # Sarvam Instant Outbound — real calls. All required when provider=sarvam.
+    sarvam_api_key: str | None = None
+    sarvam_org_id: str | None = None
+    sarvam_workspace_id: str | None = None
+    sarvam_outbound_app_id: str | None = None
+    sarvam_outbound_app_version: int | None = None
+    sarvam_connection_id: str | None = None
+    sarvam_agent_phone_number: str | None = None
+    # How long place() polls the analytics API for the attempt outcome.
+    sarvam_outbound_timeout_seconds: int = 300
     # Simulated customer answer: interested | not_interested | no_answer.
     sim_callback_outcome: str = "interested"
     callback_tick_seconds: int = 30
