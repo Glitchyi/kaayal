@@ -280,6 +280,14 @@ td.actions form.inline button {{ min-height: 2.5rem; padding: .35rem .8rem; font
   box-shadow: 0 0 0 1.5px var(--ivory), 0 6px 18px rgba(18,63,60,.28);
 }}
 .fab-call:hover {{ background: var(--lagoon); text-decoration: none; }}
+/* Hidden while an inline call button (or the footer) is on screen: the action
+   is already visible there, and the floating copy would only cover text.
+   visibility flips after the fade so a hidden button can't take focus. */
+.fab-call {{ transition: opacity .2s ease, transform .2s ease, visibility 0s linear 0s, background-color .15s ease; }}
+.fab-call.is-hidden {{
+  opacity: 0; transform: translateY(.75rem); visibility: hidden; pointer-events: none;
+  transition: opacity .2s ease, transform .2s ease, visibility 0s linear .2s;
+}}
 .fab-call .voicewave rect {{ transform-origin: bottom; }}
 .site-footer {{
   border-top: 1px solid var(--line); margin-top: 3rem; padding-top: 1.1rem;
@@ -541,6 +549,17 @@ if ("IntersectionObserver" in window) {
   const io = new IntersectionObserver((entries) => entries.forEach((e) =>
     e.target.toggleAttribute("data-offscreen", !e.isIntersecting)), {rootMargin: "80px"});
   document.querySelectorAll("svg.scene").forEach((s) => io.observe(s));
+  // Floating call button: step aside whenever a full call button or the
+  // footer (which lists the number) is in view.
+  const fab = document.querySelector(".fab-call");
+  if (fab) {
+    const shown = new Set();
+    const fio = new IntersectionObserver((entries) => {
+      entries.forEach((e) => e.isIntersecting ? shown.add(e.target) : shown.delete(e.target));
+      fab.classList.toggle("is-hidden", shown.size > 0);
+    });
+    document.querySelectorAll(".call_line, .site-footer").forEach((el) => fio.observe(el));
+  }
 }
 </script>
 <script type="module">
