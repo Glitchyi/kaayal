@@ -146,8 +146,10 @@ bash scripts/smoke.sh http://localhost:8000 "$SARVAM_TOOL_SHARED_SECRET"</code><
   <a href="https://github.com/Glitchyi/kaayal/blob/main/starter/docs/demo-runbook.md">docs/demo-runbook.md</a></p>
 
   <h2 id="wa">WhatsApp sidecar (demo only)</h2>
-  <pre><code>cd starter/wa-bot
-npm install && npm start     # prints a QR — pair it on the +91 9400354625 phone</code></pre>
+  <pre><code>cd starter
+docker compose up -d wa-bot   # the wa-session volume keeps the pairing across recreates
+docker compose logs -f wa-bot # prints a QR — pair it on the +91 9400354625 phone
+# fallback if containers aren't running: cd starter/wa-bot && npm install && npm start</code></pre>
   <p>Operators DM that number; the bot walks them through name → boat and posts
   to <code>POST /api/ops/wa_onboard</code> (same tool token). Repeat DMs re-issue
   the portal link. Boats arrive <code>source=wa-demo</code>, unverified.</p>

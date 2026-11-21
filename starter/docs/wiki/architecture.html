@@ -169,7 +169,10 @@
   <p>All five sit behind the same auth dependency — header
   <code>X-Kaayal-Tool-Token</code> compared with <code>SARVAM_TOOL_SHARED_SECRET</code>
   via <code>hmac.compare_digest</code>. Wrong or missing → <code>401</code>;
-  secret unset → <code>503 service_not_configured</code>.</p>
+  secret unset → <code>503 service_not_configured</code>.
+  <strong>Demo note:</strong> the check is intentionally a no-op right now
+  (owner decision 2026-11-22) — the tools answer with no token. Re-enable
+  only on owner request.</p>
   <table>
     <thead><tr><th>Sarvam tool</th><th>Endpoint</th><th>Reads / writes</th><th>Returns</th></tr></thead>
     <tbody>
@@ -177,7 +180,7 @@
         <td>OpenAI (nothing else)</td>
         <td><code>{reply_text, trace_id}</code> — spoken verbatim</td></tr>
       <tr><td><code>list_boats</code></td><td><code>GET /api/catalog/boats?q=…</code></td>
-        <td>SQLite — verified boats of approved, active operators only</td>
+        <td>SQLite — verified boats of active operators only; the same <code>listed_boat</code> rule gates the request/callback tools</td>
         <td>JSON array: name, operator, capacity, embarkation, <code>price_display</code>, amenities, <code>available</code>, <code>operator_reachable</code></td></tr>
       <tr><td><code>get_boat</code></td><td><code>GET /api/catalog/boats/{id}</code></td>
         <td>SQLite — one boat</td><td>Same shape, single object</td></tr>
@@ -237,8 +240,8 @@
   <table>
     <thead><tr><th>Mechanism</th><th>Behavior</th></tr></thead>
     <tbody>
-      <tr><td>Triggers</td><td><code>fire_boat_available</code> / <code>fire_operator_reachable</code> — fired by portal toggles; requeue matching rows and bump <code>trigger_seq</code>.</td></tr>
-      <tr><td>Tick</td><td>Lifespan task wakes every <code>callback_tick_seconds</code> (30s), calls <code>process_due_callbacks</code>. Admin can also force a run.</td></tr>
+      <tr><td>Triggers</td><td><code>fire_boat_available</code> / <code>fire_operator_reachable</code> — fired by portal toggles, and by admin boat verify when it makes the boat bookable; requeue matching rows and bump <code>trigger_seq</code>.</td></tr>
+      <tr><td>Tick</td><td>Lifespan task wakes every <code>callback_tick_seconds</code> (30s), calls <code>process_due_callbacks</code> and scrubs stale request PII. Admin can also force a callback run.</td></tr>
       <tr><td>Window</td><td>Attempts only 09:00–18:00 IST; due rows outside the window are rescheduled to the next window start. <code>DEMO_IGNORE_CALL_WINDOW</code> bypasses for demos.</td></tr>
       <tr><td>Retries</td><td>Max 2 attempts per trigger, ≥61 min apart; <code>no_answer</code> is terminal for that trigger.</td></tr>
       <tr><td>Expiry</td><td>7 days, or before the travel date when one parses.</td></tr>
@@ -295,7 +298,8 @@
     <li><strong>Quiet logs.</strong> No utterances, transcripts, phone numbers or
         secrets in logs — only trace/interaction IDs, outcomes and latencies.</li>
     <li><strong>PII retention.</strong> <code>app/pii.py</code> anonymizes stale
-        request PII at startup (and via <code>scripts/anonymize_pii.py</code>) after 90 days.</li>
+        request PII after 90 days — at startup, on each maintenance tick, and
+        via <code>scripts/anonymize_pii.py</code>.</li>
     <li><strong>Honest failure.</strong> Upstream errors surface as
         <code>502 upstream_unavailable</code>; Paayal's tool-failure line says the
         service is unreachable. Nothing is faked to sound successful.</li>
