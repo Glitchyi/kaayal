@@ -87,7 +87,7 @@ def _footer(request: Request) -> str:
         f'<a href="{pre}#before-you-book">Before you book</a> · '
         f'<a href="{pre}#faq">FAQ</a> · '
         '<a href="https://glitchyi.github.io/kaayal/" '
-        'rel="noopener">Docs &amp; runbooks</a></p>'
+        'rel="noopener">Wiki</a></p>'
         f"{nums_html}</footer>"
     )
 

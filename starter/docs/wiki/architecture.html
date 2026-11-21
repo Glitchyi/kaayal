@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Noto+Sans+Malayalam:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400&family=Noto+Sans+Malayalam:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="wiki.css">
 </head>
 <body>
@@ -64,7 +64,7 @@
       <!-- actors -->
       <rect x="16" y="44" width="150" height="48" rx="3" fill="#FDFCF9" stroke="#D9E6DE"/>
       <text x="91" y="64" text-anchor="middle" font-size="12" font-weight="500" fill="#123F3C">Caller</text>
-      <text x="91" y="80" text-anchor="middle" font-size="10" fill="#5E7A74">any phone, ml-IN / en</text>
+      <text x="91" y="80" text-anchor="middle" font-size="10" fill="#5E7A74">any phone, 11 languages</text>
 
       <rect x="16" y="216" width="150" height="50" rx="3" fill="#FDFCF9" stroke="#D9E6DE"/>
       <text x="91" y="236" text-anchor="middle" font-size="12" font-weight="500" fill="#123F3C">Tourist — browser</text>
@@ -146,7 +146,17 @@
         our only lever over tool usage.</td></tr>
       <tr><td><strong>FastAPI backend</strong></td><td><code>starter/app/main.py</code> + routers</td>
         <td>Authenticates tool calls, enforces consent and validation, serves the public
-        site, operator portal and owner admin, runs the callback engine on a lifespan tick.</td></tr>
+        site, operator portal and owner admin, runs the callback engine on a lifespan tick.
+        <code>GZipMiddleware</code> (<code>minimum_size=2048</code>) compresses pages; small
+        <code>/api</code> JSON — the voice tool path included — stays uncompressed.
+        <code>.webp</code> is registered as <code>image/webp</code> for static files.</td></tr>
+      <tr><td><strong>Public site</strong></td><td><code>app/site.py</code> + <code>app/scenes.py</code></td>
+        <td>One landing page plus <code>/privacy</code>. <code>scenes.py</code> draws the
+        illustrations procedurally (seeded, so the markup is identical every request): houseboat
+        (kettuvallam), Chinese fishing net, punted canoe, and a small houseboat mark in the closing
+        band. Layered depth groups drive scroll parallax; slow ambient motion (palm sway, boat bob,
+        net lever, reeds, water shimmer) pauses off-screen and is off under
+        <code>prefers-reduced-motion</code>.</td></tr>
       <tr><td><strong>OpenAI adapter</strong></td><td><code>app/openai_adapter.py</code></td>
         <td>Used only by <code>voice_reply</code>. Hard system prompt: ≤60 words, caller's
         language, never invent prices/bookings. Reply text is whitespace-sanitized and
@@ -259,12 +269,18 @@
   <table>
     <thead><tr><th>Surface</th><th>Path</th><th>Auth</th></tr></thead>
     <tbody>
-      <tr><td>Public site</td><td><code>/</code> <code>/boats</code> <code>/paayal</code> <code>/explore</code> <code>/before-you-book</code> <code>/dtpc-houseboat-counter</code> <code>/faq</code></td>
-        <td>None — content pages only; inquiries are voice-only (<code>REQ-…</code> via the tool); operator onboarding via WhatsApp demo or admin</td></tr>
+      <tr><td>Public site</td><td><code>/</code> <code>/privacy</code></td>
+        <td>None — content only; inquiries are voice-only (<code>REQ-…</code> via the tool); operator onboarding via WhatsApp demo or admin.
+        <code>/</code> is one page: hero, How it works <code>#how</code>, Meet Paayal <code>#paayal</code> (11 language autonyms),
+        Boats <code>#boats</code>, Explore <code>#explore</code>, Before you book <code>#before-you-book</code> (DTPC counter at <code>#dtpc</code>),
+        FAQ <code>#faq</code> (7 questions), privacy summary <code>#privacy</code>, closing band. <code>/privacy</code> is a full page (200).
+        Old URLs <code>/paayal</code> <code>/boats</code> <code>/explore</code> <code>/before-you-book</code> <code>/dtpc-houseboat-counter</code> <code>/faq</code>
+        301 to those anchors. Sitemap lists <code>/</code> and <code>/privacy</code>. On phones (≤640px) the header is just the small
+        wordmark top-left, section links are hidden, and the floating “Call Paayal” button hides while an inline call button or the footer is on screen.</td></tr>
       <tr><td>Operator portal</td><td><code>/portal/{token}</code></td>
-        <td>Unguessable URL; DB stores only the SHA-256 hash. Boats add/delete/availability, reachable toggle, request confirm/decline/block</td></tr>
+        <td>Unguessable URL; DB stores only the SHA-256 hash. Reachability card, then requests waiting for an answer (optional note, Confirm / Decline / Block), boats add/remove/availability, earlier requests last</td></tr>
       <tr><td>Owner admin</td><td><code>/admin?t=…</code></td>
-        <td><code>ADMIN_TOKEN</code> query param. Operators create/reissue/approve/deactivate, boat verify, callback cancel/run, demo seed/clear</td></tr>
+        <td><code>ADMIN_TOKEN</code> query param. Operators create/reissue/approve/deactivate, boat verify, callback cancel/run, demo seed/clear. Jump bar shows per-section to-do counts; times in IST</td></tr>
     </tbody>
   </table>
 
@@ -313,11 +329,13 @@
   <p>Deliberately small: one uvicorn process, one SQLite file, one cloudflared
   tunnel, one optional Node sidecar. No cluster, no broker, no P2P.</p>
   <div class="card">
-    <h3>Known fragility</h3>
+    <h3>How it runs</h3>
     <p class="small" style="margin:.3rem 0 0">
-      uvicorn and cloudflared run as unsupervised background processes — they die
-      on reboot or logout. Process supervision (launchd / <code>cloudflared
-      service install</code>) is a pending task in <code>STATUS.md</code>.</p>
+      Production is Docker Compose on the owner's machine (<code>starter/compose.yaml</code>):
+      services <code>app</code>, <code>wa-bot</code> and <code>cloudflared</code>, all
+      <code>restart: unless-stopped</code>. The database lives in the
+      <code>kaayal-data</code> volume at <code>/data/kaayal.db</code>. It is still one
+      machine — if it is off, Paayal's tools are unreachable.</p>
   </div>
   <p>For run commands, env vars, the Sarvam dashboard steps and demo scripts see
   <a href="operations.html">Operations</a>.</p>

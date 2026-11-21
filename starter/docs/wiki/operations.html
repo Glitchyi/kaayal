@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Noto+Sans+Malayalam:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400&family=Noto+Sans+Malayalam:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="wiki.css">
 </head>
 <body>
@@ -58,6 +58,9 @@ bash scripts/smoke.sh http://localhost:8000 "$SARVAM_TOOL_SHARED_SECRET"</code><
   tunnel (<code>cloudflared tunnel --url …</code>, ngrok, Tailscale Funnel)
   works for dev; update <code>KAAYAL_PUBLIC_BASE_URL</code> and the Sarvam tool
   URLs when it changes.</p>
+  <p><strong>Deploy:</strong> production runs via Docker Compose on the owner's machine —
+  back up <code>/data/kaayal.db</code> (the <code>kaayal-data</code> volume) first, then
+  <code>cd starter &amp;&amp; docker compose up -d --build app</code>.</p>
   <p class="small muted">Canonical runbook: <a href="https://github.com/Glitchyi/kaayal/blob/main/starter/docs/run-local-and-tunnel.md">docs/run-local-and-tunnel.md</a></p>
 
   <h2 id="env">Environment</h2>
@@ -219,6 +222,25 @@ bash scripts/smoke.sh http://localhost:8000 "$SARVAM_TOOL_SHARED_SECRET"</code><
         customer's contact for a direct call-back. Lost link →
         <strong>Reissue</strong> in admin (old link dies instantly).</li>
   </ol>
+  <h3>What the owner sees in <code>/admin</code></h3>
+  <ul>
+    <li>A header band with a jump bar: per-section to-do counts — operators
+        <em>awaiting approval</em>, boats <em>to verify</em>, requests
+        <em>unassigned</em>, callbacks <em>in queue</em>.</li>
+    <li>Callback reasons and attempt outcomes in plain language; every timestamp in IST.</li>
+    <li>Requests show the boat name, or a <span class="badge wait">no boat picked</span> badge — follow those up by phone.</li>
+    <li>After an action, the notice appears inside the section the redirect lands on.</li>
+    <li>The one-time portal-link page has a <strong>Copy link</strong> button. No motion on admin or portal.</li>
+  </ul>
+  <h3>What the operator sees in the portal</h3>
+  <ul>
+    <li>A reachability card at the top with the “Mark me reachable / unreachable” toggle.</li>
+    <li>Requests waiting for an answer listed first, each with one optional note field and
+        <strong>Confirm</strong> / <strong>Decline</strong> / <strong>Block</strong>.
+        Block and boat <strong>Remove</strong> ask for confirmation.</li>
+    <li>Their boats; the add-boat form collapses once they have any.</li>
+    <li>Earlier (answered) requests listed after the boats.</li>
+  </ul>
   <p class="small muted">Canonical runbook: <a href="https://github.com/Glitchyi/kaayal/blob/main/starter/docs/operator-onboarding.md">docs/operator-onboarding.md</a></p>
 
   <h2 id="demo">Demo script</h2>

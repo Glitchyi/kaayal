@@ -1,9 +1,14 @@
-/* Kaayal wiki — Backwater Editorial tokens, same source as starter/app/ui.py */
+/* Kaayal wiki — Backwater Editorial tokens, same source as starter/app/ui.py.
+   Follows the site's current rules (KAAYAL_DESIGN_SYSTEM.md): Fraunces 400
+   display with negative tracking, a lagoon rule above each h2, italic Fraunces
+   numerals for sequences, tabular numbers in tables, no kicker labels, and on
+   phones a small top-left wordmark padded equally from the top and left. */
 :root {
   --lagoon: #123F3C; --teal: #267A73; --ivory: #F7F5EE;
   --mist: #D9E6DE; --sand: #C68E55; --ink: #17302E;
   --line: color-mix(in srgb, var(--lagoon) 18%, transparent);
-  --card: #FDFCF9; --muted: #5E7A74;
+  --card: #FDFCF9; --muted: #4A6B66;
+  --gutter: clamp(1.25rem, 4vw, 3rem);
   --body-font: 'Satoshi','Noto Sans Malayalam',system-ui,-apple-system,sans-serif;
   --display-font: 'Fraunces','Noto Sans Malayalam',Georgia,serif;
 }
@@ -160,4 +165,63 @@ footer.colophon {
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
+}
+
+
+/* ==== Current site rules (2026-11-22) ===================================== */
+::selection { background: color-mix(in srgb, var(--sand) 40%, var(--ivory)); color: var(--lagoon); }
+p, li { text-wrap: pretty; }
+
+/* Chrome: wordmark at the site's size; the wiki label is plain text, not a pill. */
+.masthead { padding: 1.1rem var(--gutter); align-items: center; }
+.masthead .wordmark { font-size: 1.35rem; line-height: 1; }
+.masthead .wiki-tag { border: 0; padding: 0; font-size: .85rem; color: var(--muted); margin-left: auto; }
+.layout { max-width: 72rem; padding: clamp(2rem, 4vw, 3rem) var(--gutter) 4rem; }
+/* Two columns only where the old single-column breakpoint doesn't apply —
+   this block comes after it in the file, so it must not override it. */
+@media (min-width: 46.0625rem) {
+  .layout { grid-template-columns: 12rem minmax(0, 48rem); gap: clamp(2rem, 5vw, 4rem); }
+  .sidenav { position: sticky; top: 1.5rem; align-self: start; }
+}
+.sidenav .navhead { font-family: var(--display-font); font-style: italic; font-size: .95rem; color: var(--muted); }
+
+/* Grid children may shrink below their content; wide diagrams, tables and
+   code then scroll inside their own box instead of widening the page. */
+.layout > * { min-width: 0; }
+
+/* Type: display scale and weight as on the site. */
+h1 { font-size: clamp(2.2rem, 4.2vw, 3.25rem); font-weight: 400; letter-spacing: -.025em; line-height: 1.02; margin: 0 0 .9rem; }
+h2 { font-size: clamp(1.5rem, 2.2vw, 1.9rem); font-weight: 400; letter-spacing: -.01em;
+  margin: clamp(2.75rem, 5vw, 3.75rem) 0 .9rem; padding-top: 1.1rem; border-top: 1px solid var(--lagoon); }
+h3 { font-weight: 500; font-size: 1.2rem; }
+.lede { font-size: clamp(1.08rem, 1.4vw, 1.2rem); line-height: 1.55; max-width: 42rem; }
+main p, main li { max-width: 46rem; }
+
+/* Tables: quiet header, tabular numbers, row hover — as in admin. */
+table { font-variant-numeric: tabular-nums; }
+th { color: var(--muted); font-size: .78rem; border-bottom: 1px solid var(--line); padding: .5rem .75rem .5rem 0; }
+td { padding: .7rem .75rem .7rem 0; }
+tbody tr:hover td { background: color-mix(in srgb, var(--mist) 30%, transparent); }
+
+/* Sequences: italic Fraunces numerals in a gutter, hairlines between steps. */
+.flow li { border-left: 0; margin-left: 0; padding: .8rem 0 .8rem 2.75rem; border-top: 1px solid var(--line); }
+.flow li:first-child { border-top: 0; padding-top: .2rem; }
+.flow li::before {
+  width: auto; height: auto; border: 0; border-radius: 0; background: none; display: block;
+  left: 0; top: .7rem; font-family: var(--display-font); font-style: italic; font-weight: 400;
+  font-size: 1.75rem; line-height: 1; color: var(--teal);
+}
+.flow li:first-child::before { top: .05rem; }
+
+details summary { font-family: var(--display-font); font-weight: 500; font-size: 1.05rem; }
+footer.colophon { margin-top: 3.5rem; }
+
+/* Phones: same header as every Kaayal page — small wordmark top-left,
+   padded from the top by the same gutter as from the left. */
+@media (max-width: 640px) {
+  .masthead { padding: var(--gutter) var(--gutter); flex-wrap: nowrap; }
+  .masthead .wordmark { font-size: 1.35rem; }
+  .layout { padding-top: 1.5rem; }
+  .sidenav { position: static; }
+  table { display: block; overflow-x: auto; }
 }
