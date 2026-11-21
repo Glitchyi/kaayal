@@ -7,7 +7,8 @@
 // Production path is the WhatsApp Business API.
 
 import { create } from "@open-wa/wa-automate";
-import { readFileSync } from "node:fs";
+import { readFileSync, unlinkSync } from "node:fs";
+import { createServer } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -47,6 +48,18 @@ async function onboard({ phone, name, boat_name, embarkation }) {
   return res.json();
 }
 
+// Repeat-DM fast path: 404 = unknown number → run the onboarding flow.
+async function reissue(phone) {
+  const res = await fetch(`${API}/api/ops/wa_reissue`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Kaayal-Tool-Token": TOKEN },
+    body: JSON.stringify({ phone }),
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`reissue failed: HTTP ${res.status}`);
+  return res.json();
+}
+
 const WELCOME =
   "Namaskaram! Welcome to Kaayal (കായൽ) operator onboarding.\n\n" +
   "Kaayal connects Alappuzha boat operators to callers. Reply with *your name* to start.";
@@ -65,6 +78,10 @@ function start(client) {
   });
   client.onMessage(async (msg) => {
     try {
+      // Log shape only — never the raw phone number or body (PII rules).
+      console.log(
+        `inbound msg: type=${msg.type} group=${!!msg.isGroupMsg} fromMe=${!!msg.fromMe} from=…${String(msg.from || msg.chatId || "").replace(/@.*/, "").slice(-4)}`
+      );
       if (msg.fromMe || msg.isGroupMsg || msg.type !== "chat") return;
       const chatId = msg.chatId;
       const phone = (msg.from || chatId).replace(/@.*/, "");
@@ -73,8 +90,20 @@ function start(client) {
       const s = state.get(chatId) || { step: 0 };
 
       if (s.step === 0) {
-        await client.sendText(chatId, WELCOME);
-        state.set(chatId, { step: 1 });
+        const known = await reissue(phone);
+        if (known) {
+          await client.sendText(
+            chatId,
+            known.portal_url
+              ? `Welcome back, ${known.name}!\n\n` +
+                  `Fresh portal link (the old one just died):\n${known.portal_url}`
+              : `You're already registered, ${known.name} — still *pending verification*. ` +
+                  "We'll WhatsApp you the portal link once the owner approves."
+          );
+        } else {
+          await client.sendText(chatId, WELCOME);
+          state.set(chatId, { step: 1 });
+        }
       } else if (s.step === 1) {
         s.name = text;
         await client.sendText(
@@ -114,6 +143,59 @@ function start(client) {
       }
     }
   });
+  // Diagnostic: fires for every message event, not just inbound chats.
+  client.onAnyMessage((msg) => {
+    console.log(
+      `any-msg: type=${msg.type} group=${!!msg.isGroupMsg} fromMe=${!!msg.fromMe}`
+    );
+  });
+  // Push channel for the app: POST /send {phone, text} authed with the shared
+  // tool token — delivers messages without an inbound DM (e.g. portal link
+  // on operator approval). Internal network only, never published.
+  createServer((req, res) => {
+    if (req.method !== "POST" || req.url !== "/send") {
+      res.writeHead(404).end();
+      return;
+    }
+    if (req.headers["x-kaayal-tool-token"] !== TOKEN) {
+      res.writeHead(401).end();
+      return;
+    }
+    let body = "";
+    req.on("data", (c) => {
+      body += c;
+      if (body.length > 4096) req.destroy();
+    });
+    req.on("end", async () => {
+      try {
+        const { phone, text } = JSON.parse(body);
+        const digits = String(phone || "").replace(/\D/g, "");
+        if (!digits || !text) throw new Error("bad payload");
+        // Free tier can't start new chats — reuse an existing one when the
+        // number has DM'd the bot before (onboarded operators always have).
+        const chats = (await client.getAllChats().catch(() => [])) || [];
+        const chat = chats.find((c) => String(c.id || "").includes(digits));
+        await client.sendText(
+          chat ? chat.id : `${digits}@c.us`,
+          String(text).slice(0, 2000),
+        );
+        res.writeHead(200, { "content-type": "application/json" }).end('{"ok":true}');
+      } catch {
+        res.writeHead(500).end();
+      }
+    });
+  }).listen(8090, () => console.log("send listener on :8090"));
+}
+
+// Persist the Chromium profile on the session volume — WhatsApp Web auth
+// keys live in the browser profile (IndexedDB), so a tmp profile means a
+// rescan after every container restart. Clear stale Singleton* locks left
+// by unclean exits so Chrome will launch.
+const profileDir = `${env.WA_SESSION_PATH || "./sessions"}/chrome-profile`;
+for (const lock of ["SingletonLock", "SingletonSocket", "SingletonCookie"]) {
+  try {
+    unlinkSync(`${profileDir}/${lock}`);
+  } catch {}
 }
 
 create({
@@ -124,7 +206,11 @@ create({
   authTimeout: 0,
   sessionDataPath: env.WA_SESSION_PATH || "./sessions",
   executablePath: env.WA_CHROME_PATH || undefined,
-  chromiumArgs: ["--no-sandbox", "--disable-setuid-sandbox"],
+  chromiumArgs: [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    `--user-data-dir=${profileDir}`,
+  ],
 })
   .then(start)
   .catch((err) => {

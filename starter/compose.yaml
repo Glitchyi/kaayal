@@ -18,6 +18,7 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: sqlite:////data/kaayal.db
+      WA_BOT_URL: http://wa-bot:8090
     volumes:
       - kaayal-data:/data
     healthcheck:

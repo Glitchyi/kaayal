@@ -12,6 +12,7 @@ from app.callbacks import ACTIVE as _CB_ACTIVE, MAX_ATTEMPTS as _CB_MAX_ATTEMPTS
 from app.db import Boat, BookingRequest, CallbackAttempt, CallbackRequest, Operator, utcnow
 from app.portal import hash_token, new_token
 from app.ui import esc as _esc, page as _page, status_badge as _status_badge
+from app.wa_notify import notify_portal_link
 
 router = APIRouter(prefix="/admin")
 
@@ -245,11 +246,15 @@ def approve_operator(op_id: int, request: Request, t: str | None = None):
         op.approved_at = utcnow()
         op.token_hash = hash_token(token)
         name = op.name
+        phone = op.phone
         session.commit()
     base = request.app.state.settings.kaayal_public_base_url.rstrip("/")
     url = f"{base}/portal/{token}"
+    sent = notify_portal_link(request.app.state.settings, phone, name, url)
     return _portal_link_page(
         "Operator approved", name, url, t,
+        "Sent to the operator over WhatsApp. This link is also shown once — raw tokens are never stored; reissue if lost."
+        if sent else
         "This link is shown once — send it to the operator now. Raw tokens are never stored; reissue a new one if it is lost.",
     )
 

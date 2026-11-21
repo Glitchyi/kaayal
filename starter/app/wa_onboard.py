@@ -36,6 +36,19 @@ class WaOnboardOut(BaseModel):
     boat_id: int | None
 
 
+class WaReissueIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    phone: str = Field(min_length=6, max_length=25)
+
+
+class WaReissueOut(BaseModel):
+    operator_id: int
+    name: str
+    portal_url: str | None
+    status: str  # pending_approval | approved
+
+
 def _digits(phone: str) -> str:
     return re.sub(r"\D", "", phone)
 
@@ -97,4 +110,37 @@ def wa_onboard(payload: WaOnboardIn, request: Request):
         portal_url=f"{base}/portal/{token}" if approved else None,
         status="approved" if approved else "pending_approval",
         boat_id=boat_id,
+    )
+
+
+@router.post("/wa_reissue", response_model=WaReissueOut)
+def wa_reissue(payload: WaReissueIn, request: Request):
+    """Repeat-DM fast path: recognized number gets a fresh link (or pending
+    status) without re-running the onboarding questionnaire."""
+    if not _PHONE_RE.match(payload.phone):
+        raise HTTPException(status_code=400, detail="invalid_phone")
+
+    engine = request.app.state.engine
+    base = request.app.state.settings.kaayal_public_base_url.rstrip("/")
+    want_digits = _digits(payload.phone)
+
+    with Session(engine) as session:
+        op = next(
+            (o for o in session.exec(select(Operator)).all() if _digits(o.phone) == want_digits),
+            None,
+        )
+        if op is None:
+            raise HTTPException(status_code=404, detail="unknown_operator")
+        token = new_token()
+        # Same contract as a repeat onboard: the old link dies immediately.
+        op.token_hash = hash_token(token)
+        session.add(op)
+        session.commit()
+        operator_id, name, approved = op.id, op.name, op.approved_at is not None
+
+    return WaReissueOut(
+        operator_id=operator_id,
+        name=name,
+        portal_url=f"{base}/portal/{token}" if approved else None,
+        status="approved" if approved else "pending_approval",
     )

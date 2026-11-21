@@ -4,6 +4,8 @@ Only verified, active boats are ever exposed here; unverified listings are
 invisible to callers by design (spec FR-02).
 """
 
+import re
+
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from sqlmodel import Session, select
@@ -26,6 +28,10 @@ class BoatOut(BaseModel):
     available: bool
 
 
+class BoatListOut(BaseModel):
+    boats: list[BoatOut]
+
+
 def _to_out(boat: Boat, op: Operator) -> BoatOut:
     return BoatOut(
         id=boat.id,
@@ -41,7 +47,7 @@ def _to_out(boat: Boat, op: Operator) -> BoatOut:
     )
 
 
-@router.get("/boats", response_model=list[BoatOut])
+@router.get("/boats", response_model=BoatListOut)
 def list_boats(request: Request, q: str | None = None):
     engine = request.app.state.engine
     with Session(engine) as session:
@@ -54,13 +60,21 @@ def list_boats(request: Request, q: str | None = None):
     boats = [_to_out(b, op) for b, op in rows]
     if q:
         needle = q.casefold()
-        boats = [
+        m = re.search(r"\d+", q)
+        size = int(m.group()) if m else None
+        # Group-size queries ("4 people") match capacity; boats with unknown
+        # capacity aren't excluded since the demo catalog rarely fills it in.
+        filtered = [
             b for b in boats
             if needle in b.name.casefold()
             or needle in b.operator_name.casefold()
             or (b.embarkation_point and needle in b.embarkation_point.casefold())
+            or (size is not None and (b.capacity is None or b.capacity >= size))
         ]
-    return boats
+        # Tiny demo catalog — on a keyword miss, surface everything rather
+        # than nothing; the agent can still describe what's actually listed.
+        boats = filtered or boats
+    return BoatListOut(boats=boats)
 
 
 @router.get("/boats/{boat_id}", response_model=BoatOut)

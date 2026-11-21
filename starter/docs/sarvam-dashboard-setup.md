@@ -1,35 +1,53 @@
-# Sarvam dashboard setup — Kaayal
+# Sarvam dashboard setup — Paayal voice agent
 
-Verified against official Sarvam docs on 2026-11-21:
+Configures the Sarvam Voice Agents dashboard for Kaayal. The agent (Paayal)
+answers an existing provisioned number and calls five tools on the FastAPI
+backend over the public tunnel URL.
 
-- API/HTTP tool: https://docs.sarvam.ai/voice-agents/build/tools/https-tool
-- Tools overview: https://docs.sarvam.ai/voice-agents/build/tools
-- Inbound deployments: https://docs.sarvam.ai/voice-agents/deploy/inbounds
-- Phone numbers/telephony: https://docs.sarvam.ai/voice-agents/deploy/telephony
+## 0. Prerequisites
 
-## 1. Confirm the existing number
+- Stack running: `cd starter && docker compose up -d` — verify
+  `curl http://localhost:8000/health` → `{"status":"ok"}` and
+  `curl https://kaayal.glitchy.systems/health` → same.
+- The tool secret, used by every tool below:
+  `grep SARVAM_TOOL_SHARED_SECRET starter/.env`
+- An already-provisioned phone number in the Sarvam dashboard
+  (**Deploy → Phone Numbers**). Do not rent or import a new one.
 
-1. Open **Deploy → Phone Numbers** in the Sarvam Voice Agents dashboard.
-2. Confirm the already-provisioned number is listed under a connection (rented from Sarvam or imported via Bring Your Own). **Do not buy or rent a new number.**
+## 1. Store the secret
 
-## 2. Create the API tools
+Dashboard → **Settings → Secrets** → add `KAAYAL_TOOL_TOKEN` with the value
+of `SARVAM_TOOL_SHARED_SECRET` from `.env` via the masked input.
 
-In the agent builder (**Build**), create four **API tools**. All share:
+> The single most common failure is a stale/missing token here: every tool
+> call returns `401` and the agent can only say it "couldn't pull up"
+> anything. If tools 401, fix this first — not the prompt.
 
-- **When should this tool run?** `run` (During conversation)
-- **Auth**: **api_key** → header `X-Kaayal-Tool-Token`, value = `SARVAM_TOOL_SHARED_SECRET`, entered via the **masked secret input** (Settings → Secrets). Never in plain text.
-- **Advanced → Max wait**: ~10–15s (max 30s)
-- **Advanced → If it fails**: a short honest line, e.g. `Sorry, I'm having trouble reaching my service right now. Could you try again in a moment?`
+## 2. Create the five API tools
 
-| Tool | Method | URL | Purpose |
-| --- | --- | --- | --- |
-| `voice_reply` | POST | `https://kaayal.glitchy.systems/api/voice/reply` | OpenAI-written answers for general questions |
-| `list_boats` | GET | `https://kaayal.glitchy.systems/api/catalog/boats` | Verified boats (incl. `available`, `operator_reachable`, `price_display`, `amenities`); optional query `q` |
-| `get_boat` | GET | `https://kaayal.glitchy.systems/api/catalog/boats/{boat_id}` | One boat's details; path `boat_id` |
-| `create_booking_request` | POST | `https://kaayal.glitchy.systems/api/voice/request` | Store a caller's request after consent; may return `unavailable`/`unreachable` → offer a callback |
-| `create_callback_request` | POST | `https://kaayal.glitchy.systems/api/voice/callback` | Queue a consented callback; `consent_given=false` + phone = opt-out |
+In the agent builder (**Build**), create five API tools. Shared settings:
 
-### Request bodies (use `@` in the body editor to insert variables)
+- **When should this tool run?** — `run` (during conversation)
+- **Auth** — `api_key`, header `X-Kaayal-Tool-Token`, value =
+  the `KAAYAL_TOOL_TOKEN` secret
+- **Max wait** — 10–15 s
+- **On failure** — a short honest line, e.g.
+  `Sorry, my service is unreachable right now — can we try again in a moment?`
+
+| Tool | Method | URL |
+| --- | --- | --- |
+| `voice_reply` | POST | `https://kaayal.glitchy.systems/api/voice/reply` |
+| `list_boats` | GET | `https://kaayal.glitchy.systems/api/catalog/boats` |
+| `get_boat` | GET | `https://kaayal.glitchy.systems/api/catalog/boats/{boat_id}` |
+| `create_booking_request` | POST | `https://kaayal.glitchy.systems/api/voice/request` |
+| `create_callback_request` | POST | `https://kaayal.glitchy.systems/api/voice/callback` |
+
+### Request bodies
+
+Use `@` in the body editor to insert variables. `interaction_id` comes from
+the call-context picker; the rest are agent variables filled from the
+conversation. **Never** map User Identifier or Call Transcript — phone
+numbers are collected only through the consented `customer_phone` field.
 
 `voice_reply`:
 ```json
@@ -39,6 +57,9 @@ In the agent builder (**Build**), create four **API tools**. All share:
   "language": "@call_language"
 }
 ```
+
+`list_boats` — add optional query param `q` = caller's keywords
+(e.g. "5 people", "shikara").
 
 `create_booking_request`:
 ```json
@@ -54,10 +75,6 @@ In the agent builder (**Build**), create four **API tools**. All share:
 }
 ```
 
-- `interaction_id` — pick **Interaction ID** from the call-context variables in the `@` picker.
-- Other `@vars` are agent/tool variables the model fills from the conversation; create them in the tool editor if it asks.
-- **Do not** map **User Identifier** (caller's number) or **Call Transcript** anywhere — we collect phone numbers only through the consented `customer_phone` field.
-
 `create_callback_request`:
 ```json
 {
@@ -72,16 +89,26 @@ In the agent builder (**Build**), create four **API tools**. All share:
 }
 ```
 
-- `reason` is exactly `operator_unreachable` or `no_availability`.
+`reason` must be exactly `operator_unreachable` or `no_availability`.
 
 ### Response templates
 
-- `voice_reply` → `{{reply_text}}` (returns `{reply_text, trace_id}`; optionally save `trace_id` into an agent variable for debugging).
-- `list_boats` / `get_boat` → describe the returned boats naturally.
-- `create_booking_request` → `{{message}}` (returns `{request_id, status, message}`; statuses: `pending`, `rejected`, `unavailable`, `unreachable` — the last two mean offer a callback instead).
-- `create_callback_request` → `{{message}}` (statuses: `queued`, `opted_out`, `rejected`).
+- `voice_reply` → `{{reply_text}}` (optionally save `trace_id` into an agent
+  variable for debugging)
+- `list_boats` → `{{boats}}` — response is `{"boats": [...]}` (wrapped so
+  the template has a field to reference); describe each boat's `name`,
+  `operator_name`, `capacity`, `embarkation_point`, `price_display`,
+  `amenities`, `available`, `operator_reachable`
+- `get_boat` → same fields on a single object
+- `create_booking_request` → `{{message}}`; statuses `pending`,
+  `rejected`, `unavailable`, `unreachable` — the last two mean offer a
+  callback
+- `create_callback_request` → `{{message}}`; statuses `queued`,
+  `opted_out`, `rejected`
 
-## 3. Paayal agent prompt (paste into agent instructions)
+## 3. Agent instructions
+
+Paste this whole block into the agent's instructions:
 
 ```text
 You are Paayal, the voice assistant of Kaayal (കായൽ), connecting callers to
@@ -91,14 +118,19 @@ has already completed (e.g., if they already gave their name or agreed to
 share their number, do not ask again).
 
 [ ] 1. GREET — say you are Paayal, in Malayalam. Continue in the caller's
-       language (Malayalam or English — other Bulbul-supported languages stay out of public claims until tested on real calls). Max two short sentences per turn.
+       language (Malayalam or English). Max two short sentences per turn.
 
 [ ] 2. CLASSIFY the caller's need:
-       - General question about Kaayal/Kerala/Alappuzha → step 3
-       - Question about boats/operators/capacity/routes → step 4
+       - Question about Kaayal/Kerala/Alappuzha, boat TYPES, or tourism → step 3
+       - Wants OUR listed boats, availability, capacity, prices → step 4
        - Wants to book or leave a request → step 5
        - Says "don't call me" / wants scheduled calls stopped → step 8
-       - Wants a human / something you can't do → step 9
+       - Anything off-topic → step 10
+
+       Step 3 vs step 4: "what kinds of boats does Alappuzha have?" or
+       "tell me about boats" is a general-knowledge question → step 3
+       (voice_reply). "What boats do you have right now?" is a catalog
+       question → step 4 (list_boats).
 
 [ ] 3. GENERAL ANSWER — call tool:voice_reply, speak the returned text
        naturally. Done → back to step 2 if they ask more.
@@ -106,7 +138,7 @@ share their number, do not ask again).
 [ ] 4. BOAT INFO — call tool:list_boats (pass the caller's keywords as q)
        or tool:get_boat for one boat. Speak only what the tool returns:
        name, operator, capacity, embarkation, price_display, amenities,
-       available, operator_reachable. If the boat's available is false or
+       available, operator_reachable. If available is false or
        operator_reachable is false → say so and offer step 6. If nothing
        matches, say so and offer step 5. Done → step 2.
 
@@ -139,33 +171,63 @@ share their number, do not ask again).
        tool:create_callback_request with their number and
        consent_given=false (this cancels scheduled callbacks), then confirm.
 
-[ ] 9. OUT OF SCOPE / FAILURE — you cannot book, take payments, or call back
-       without consent. If a tool errors, say the service is temporarily
-       unavailable and offer to try again shortly.
+[ ] 9. TOOL FAILURE — if a tool errors or returns an authentication
+       failure, say the service is temporarily unavailable and offer to try
+       again shortly — never pretend to have boat data you didn't receive.
+
+[ ] 10. OFF-TOPIC — keep a running count of off-topic questions (anything
+       not about Kaayal, boats, Alappuzha tourism, or the caller's request).
+       Each time, say briefly "I can't help you with that — I'm here for
+       Kaayal boat bookings" and offer to return to boats. After the THIRD
+       off-topic question, politely say goodbye and end the call.
 ```
 
 Enable all five tools on the agent (global scope).
 
 ## 4. Language and voice
 
-Set initial language to Malayalam (`ml-IN`) and pick a Malayalam-capable speaker/voice; the agent can switch to English when the caller does. Verify actual Malayalam speech on a real call before claiming support.
+Initial language `ml-IN`, Malayalam-capable voice. The agent may switch to
+English when the caller does. Verify actual Malayalam speech on a real call
+before claiming support.
 
-## 5. Create the inbound deployment
+## 5. Inbound deployment
 
-1. **Deploy → Inbounds → Create Inbound**.
-2. **Agent step**: select the Kaayal agent and a committed version; attach the connection holding your existing number; under **Phone numbers → By number**, pick the existing number.
-3. **Availability step**: set timezone `Asia/Kolkata`, all days, and widen **Calls allowed between** to `00:00`–`23:59` for testing (default is 09:00–18:00 only).
-4. **Review & Deploy**: tick each section, then **Deploy**.
+1. **Deploy → Inbounds → Create Inbound**
+2. **Agent step**: select the Paayal agent + a committed version; attach the
+   connection holding the existing number; under **Phone numbers → By
+   number**, pick the number.
+3. **Availability step**: timezone `Asia/Kolkata`, all days, calls allowed
+   `00:00`–`23:59` for testing (default is 09:00–18:00 only).
+4. **Review & Deploy** → Deploy.
 
-Editing later requires pausing the deployment first; the agent selection is locked after creation.
+Editing later requires pausing the deployment; the agent selection is
+locked after creation.
 
-## 6. Firewall / IP allowlisting
+## 6. Verify
 
-If you deploy behind a firewall or IP allowlist, permit Sarvam egress IPs `4.213.167.70` and `35.154.84.150`. Not needed for the public tunnel URL.
+1. Press **Test** in each tool editor:
+   - `voice_reply` → `{reply_text, trace_id}`
+   - `list_boats` → JSON array of boats (not `[]` — if empty, seed/verify a
+     boat via `/admin` first)
+   - `create_booking_request` (consent_given=true) →
+     `{request_id, status:"pending", message}`
+2. Call the number in Malayalam, then English: ask a general question, ask
+   about boats, leave a test request.
+3. Server side:
+   `docker logs kaayal-app-1 | grep -E "voice_reply|catalog|callback"` —
+   expect `200`s, and `voice_reply outcome=ok trace_id=…` lines (sanitized).
+4. The test request must appear on the operator's portal and in `/admin`.
 
-## 7. Verify
+## 7. Troubleshooting
 
-1. Press **Test** in each tool editor — `voice_reply` → `{reply_text, trace_id}`; `list_boats` → JSON array; `create_booking_request` → `{request_id, status:"pending", message}` (test with consent_given=true).
-2. Call the number in Malayalam, then English. Ask a general question, a boat question, and leave a test request.
-3. Check server logs: `voice_reply outcome=ok trace_id=... interaction_id=...` — sanitized, no transcripts.
-4. Confirm the test request appears on the operator's portal and in `/admin`. If Paayal never calls a tool, tighten the classify step — hosted agents don't always invoke tools (documented risk).
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| All tools 401 in app logs | stale/missing dashboard secret | §1 — re-enter `KAAYAL_TOOL_TOKEN` |
+| Agent says no boats exist | catalog empty or tool 401 | verify a boat in `/admin`; re-test tool |
+| No request/callback in `/admin` | `create_*` call 401'd or never fired | check app logs for the POST; tighten classify step |
+| Paayal never calls tools | hosted agent skipped them | tighten step 2 CLASSIFY; confirm tools enabled on agent |
+| Calls rejected outside hours | deployment availability window | §5 step 3 — widen to 00:00–23:59 |
+
+Firewall note: if the backend ever sits behind an IP allowlist, permit
+Sarvam egress `4.213.167.70` and `35.154.84.150`. Not needed for the tunnel
+URL.

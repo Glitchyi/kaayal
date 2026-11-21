@@ -17,6 +17,16 @@ Repeat DM from the same number re-issues the link (old one dies instantly) — t
 
 ## Run it
 
+**Preferred — docker compose** (whole stack, restart policies, persistent session volume; requires colima running: `colima start` or `brew services start colima`):
+
+```bash
+cd starter
+docker compose up -d --build
+docker compose logs -f wa-bot   # watch for the QR
+```
+
+**Fallback — native:**
+
 ```bash
 cd starter/wa-bot
 npm install          # first time only — pulls a Chromium runtime
@@ -24,10 +34,12 @@ npm start            # prints a QR code on first run
 ```
 
 1. On the **9400354625 phone**: WhatsApp → Settings → Linked Devices → Link a Device → scan the QR.
-2. Keep `npm start` running (and the phone online) for as long as the demo needs to respond.
+2. Keep the process running (and the phone online) for as long as the demo needs to respond.
 3. From any other phone, DM `+91 9400354625` → follow the prompts.
 
-The bot reads `SARVAM_TOOL_SHARED_SECRET` and `KAAYAL_API_BASE` (default `http://localhost:8000`) from `starter/.env`. For the public hostname in portal links, `KAAYAL_PUBLIC_BASE_URL=https://kaayal.glitchy.systems` is already set there.
+The bot reads `SARVAM_TOOL_SHARED_SECRET` and `KAAYAL_API_BASE` (default `http://localhost:8000`; `http://app:8000` in compose) from `starter/.env`. For the public hostname in portal links, `KAAYAL_PUBLIC_BASE_URL=https://kaayal.glitchy.systems` is already set there.
+
+The pairing lives in the `wa-session` compose volume (`WA_SESSION_PATH=/session`) — container restarts keep it paired unless the phone unlinks the device. If the session dies, `bot.mjs` exits on UNPAIRED/CONFLICT so `restart: unless-stopped` respawns it and prints a fresh QR in `docker compose logs wa-bot`.
 
 ## Boundaries
 

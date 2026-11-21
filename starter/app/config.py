@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     kaayal_phone_number: str | None = None
     # Separate WhatsApp line for operator onboarding (kept distinct from the call number).
     kaayal_whatsapp_number: str | None = None
+    # wa-bot send listener (compose internal only). Unset = no push on approval.
+    wa_bot_url: str | None = None
     # Callback engine: "simulator" (no real calls) or "sarvam" (stub — needs approval).
     outbound_provider: str = "simulator"
     # Simulated customer answer: interested | not_interested | no_answer.

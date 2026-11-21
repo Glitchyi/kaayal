@@ -1,9 +1,10 @@
 # Kaayal wa-bot — open-wa demo sidecar. Unofficial API, demo only.
-FROM node:20-bookworm-slim
+FROM node:22-bookworm-slim
 
 # System chromium (+ its shared libs) for puppeteer; fonts so QR/pages render.
+# zstd: simple-zstd (open-wa session-sync dep) shells out to the binary.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    chromium ca-certificates fonts-noto-core \
+    chromium ca-certificates fonts-noto-core zstd \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /bot

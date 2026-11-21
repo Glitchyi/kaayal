@@ -8,11 +8,12 @@ import re
 import secrets
 
 from fastapi import APIRouter, Request
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlmodel import Session, func, select
 
 from app.callbacks import create_callback, opt_out_phone
 from app.db import Boat, BookingRequest, Operator
+from app.wa_notify import notify_booking_request
 
 router = APIRouter(prefix="/api/voice", tags=["voice-requests"])
 
@@ -30,6 +31,12 @@ class CreateRequestIn(BaseModel):
     group_size: int | None = Field(default=None, ge=1, le=200)
     notes: str | None = Field(default=None, max_length=500)
     interaction_id: str | None = Field(default=None, max_length=120)
+
+    # Sarvam variables render unset optionals as "" — treat as absent.
+    @field_validator("*", mode="before")
+    @classmethod
+    def _empty_str_to_none(cls, v):
+        return None if v == "" else v
 
 
 class CreateRequestOut(BaseModel):
@@ -59,6 +66,8 @@ def create_booking_request(payload: CreateRequestIn, request: Request):
         )
 
     engine = request.app.state.engine
+    notify_phone = None
+    notify_boat = None
     with Session(engine) as session:
         if payload.boat_id is not None:
             boat = session.get(Boat, payload.boat_id)
@@ -81,6 +90,9 @@ def create_booking_request(payload: CreateRequestIn, request: Request):
                     status="unreachable",
                     message="That operator can't be reached right now. I can call you back when they're reachable — shall I take your number?",
                 )
+            if op and op.phone:
+                notify_phone = op.phone
+                notify_boat = boat.name
         req = BookingRequest(
             public_id=_next_public_id(session),
             boat_id=payload.boat_id,
@@ -94,6 +106,12 @@ def create_booking_request(payload: CreateRequestIn, request: Request):
         session.add(req)
         session.commit()
         public_id = req.public_id
+
+    if notify_phone:
+        notify_booking_request(
+            request.app.state.settings, notify_phone, notify_boat,
+            public_id, payload.group_size, payload.preferred_date,
+        )
 
     return CreateRequestOut(
         request_id=public_id,
@@ -119,6 +137,11 @@ class CreateCallbackIn(BaseModel):
     keywords: str | None = Field(default=None, max_length=200)
     preferred_date: str | None = Field(default=None, max_length=40)
     interaction_id: str | None = Field(default=None, max_length=120)
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def _empty_str_to_none(cls, v):
+        return None if v == "" else v
 
 
 @router.post("/callback", response_model=CreateRequestOut)
