@@ -41,7 +41,7 @@ async def client(app):
 
 def seed_operator(app, verified=True):
     with Session(app.state.engine) as s:
-        op = Operator(name="Raj Boats", phone="+910000000001", token_hash=hash_token(OP_TOKEN))
+        op = Operator(name="Raj Boats", phone="+910000000001", token_hash=hash_token(OP_TOKEN), approved_at=utcnow())
         s.add(op)
         s.commit()
         s.refresh(op)

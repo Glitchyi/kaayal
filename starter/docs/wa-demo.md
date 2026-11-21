@@ -31,6 +31,19 @@ The bot reads `SARVAM_TOOL_SHARED_SECRET` and `KAAYAL_API_BASE` (default `http:/
 
 ## Boundaries
 
-- The bot creates *operators + unverified boat rows* — nothing is publicly listed until verified in `/admin`.
+- The bot creates *pending operators + unverified boat rows* — operators get `pending verification` until approved in `/admin`, and nothing is publicly listed until verified.
 - Raw portal tokens never touch the DB (only SHA-256 hashes) and are never logged.
 - Kaayal still sends no messages on the operator's behalf — the bot replies as *the Kaayal number* to onboarding DMs only; customer contact stays manual (portal wa.me links).
+- The same onboarding works **without WhatsApp** at `/join` on the website — the bot is a demo convenience, not the only path.
+
+## Migration path → official WhatsApp Business Platform
+
+When ready for production, replace `wa-bot/` with a webhook consumer; the Kaayal-side contract (`POST /api/ops/wa_onboard`) stays identical:
+
+1. Meta developer account → create app → add **WhatsApp** product → register + verify the 9400354625 number (or a dedicated business number — migrating the same SIM requires removing it from consumer WhatsApp).
+2. Point the app's webhook at a new `POST /api/wa/webhook` endpoint on this FastAPI service (verify token + app-secret signature check).
+3. Map inbound text payloads to the same onboarding state machine (port the step logic from `wa-bot/bot.mjs`).
+4. Reply via `POST https://graph.facebook.com/v{ver}/{phone_number_id}/messages` with a permanent access token stored as an env secret — never in code.
+5. Note: free-form replies are only allowed inside the 24h customer-service window; beyond that, Meta-approved *message templates* are required. Design the flow so the portal link goes out within the window.
+
+Until then, open-wa is acceptable for demos on a spare number.

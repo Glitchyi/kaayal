@@ -5,7 +5,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlmodel import Session, select
 
 from app.config import Settings
-from app.db import Boat, Operator
+from app.db import Boat, Operator, utcnow
 from app.main import create_app
 from app.portal import hash_token
 
@@ -42,7 +42,7 @@ def _token_from(url: str) -> str:
     return url.rsplit("/portal/", 1)[1]
 
 
-async def test_creates_operator_and_portal_url(client, app):
+async def test_new_signup_is_pending(client, app):
     r = await client.post(
         "/api/ops/wa_onboard",
         headers=AUTH,
@@ -50,27 +50,42 @@ async def test_creates_operator_and_portal_url(client, app):
     )
     assert r.status_code == 200
     body = r.json()
-    assert body["portal_url"].startswith(f"{BASE}/portal/")
+    assert body["status"] == "pending_approval" and body["portal_url"] is None
     with Session(app.state.engine) as s:
-        ops = s.exec(select(Operator)).all()
-        assert len(ops) == 1
-        assert ops[0].phone == "+919400354625"
-        assert ops[0].token_hash == hash_token(_token_from(body["portal_url"]))
+        op = s.exec(select(Operator)).one()
+        assert op.approved_at is None and op.source == "wa-demo"
         boat = s.exec(select(Boat)).one()
         assert boat.name == "Lake Queen" and boat.verified_at is None
-        assert boat.source == "wa-demo"
-    # The returned link actually opens the portal.
+
+
+async def test_approved_operator_gets_link(client, app):
+    with Session(app.state.engine) as s:
+        s.add(Operator(name="Raj", phone="+919400354625",
+                       token_hash=hash_token("old"), approved_at=utcnow()))
+        s.commit()
+    r = await client.post(
+        "/api/ops/wa_onboard",
+        headers=AUTH,
+        json={"phone": "+91 94003 54625", "name": "Raj"},
+    )
+    body = r.json()
+    assert body["status"] == "approved" and body["portal_url"].startswith(f"{BASE}/portal/")
     portal = await client.get(f"/portal/{_token_from(body['portal_url'])}")
     assert portal.status_code == 200
+    # And the pre-existing token is dead.
+    assert (await client.get("/portal/old")).status_code in (403, 404)
 
 
-async def test_repeat_message_reissues_link(client):
+async def test_repeat_message_reissues_link(client, app):
+    with Session(app.state.engine) as s:
+        s.add(Operator(name="Raj", phone="+919400354625",
+                       token_hash=hash_token("seed"), approved_at=utcnow()))
+        s.commit()
     payload = {"phone": "+91 94003 54625", "name": "Raj"}
     first = (await client.post("/api/ops/wa_onboard", headers=AUTH, json=payload)).json()
     second = (await client.post("/api/ops/wa_onboard", headers=AUTH, json=payload)).json()
     assert first["operator_id"] == second["operator_id"]
     assert first["portal_url"] != second["portal_url"]
-    # Old link dies, new link works.
     assert (await client.get(f"/portal/{_token_from(first['portal_url'])}")).status_code in (403, 404)
     assert (await client.get(f"/portal/{_token_from(second['portal_url'])}")).status_code == 200
 

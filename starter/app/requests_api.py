@@ -11,7 +11,8 @@ from fastapi import APIRouter, Request
 from pydantic import BaseModel, ConfigDict, Field
 from sqlmodel import Session, func, select
 
-from app.db import Boat, BookingRequest
+from app.callbacks import create_callback, opt_out_phone
+from app.db import Boat, BookingRequest, Operator
 
 router = APIRouter(prefix="/api/voice", tags=["voice-requests"])
 
@@ -65,7 +66,20 @@ def create_booking_request(payload: CreateRequestIn, request: Request):
                 return CreateRequestOut(
                     request_id="",
                     status="rejected",
-                    message="That boat isn't available; I can take a general request instead.",
+                    message="That boat isn't listed; I can take a general request instead.",
+                )
+            if not boat.available:
+                return CreateRequestOut(
+                    request_id="",
+                    status="unavailable",
+                    message="That boat isn't available right now. I can arrange a callback when it is — shall I take your number?",
+                )
+            op = session.get(Operator, boat.operator_id)
+            if op and not op.reachable:
+                return CreateRequestOut(
+                    request_id="",
+                    status="unreachable",
+                    message="That operator can't be reached right now. I can call you back when they're reachable — shall I take your number?",
                 )
         req = BookingRequest(
             public_id=_next_public_id(session),
@@ -85,4 +99,73 @@ def create_booking_request(payload: CreateRequestIn, request: Request):
         request_id=public_id,
         status="pending",
         message="Your request has been sent to the operator. They will confirm and call you back.",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Callback requests — consent-gated; same endpoint also handles opt-outs
+# (consent_given=false + phone withdraws all active callbacks for the number).
+# ---------------------------------------------------------------------------
+
+class CreateCallbackIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    customer_name: str = Field(min_length=1, max_length=120)
+    customer_phone: str = Field(min_length=6, max_length=25)
+    consent_given: bool
+    # operator_unreachable | no_availability
+    reason: str = Field(pattern="^(operator_unreachable|no_availability)$")
+    boat_id: int | None = None
+    keywords: str | None = Field(default=None, max_length=200)
+    preferred_date: str | None = Field(default=None, max_length=40)
+    interaction_id: str | None = Field(default=None, max_length=120)
+
+
+@router.post("/callback", response_model=CreateRequestOut)
+def create_callback_request(payload: CreateCallbackIn, request: Request):
+    if not payload.consent_given:
+        engine = request.app.state.engine
+        with Session(engine) as session:
+            n = opt_out_phone(session, payload.customer_phone)
+        return CreateRequestOut(
+            request_id="",
+            status="opted_out" if n else "rejected",
+            message=(
+                "Understood — I've removed any scheduled callbacks for that number."
+                if n
+                else "No callback was scheduled. I won't call unless you ask me to."
+            ),
+        )
+    if not _PHONE_RE.match(payload.customer_phone):
+        return CreateRequestOut(
+            request_id="", status="rejected", message="That number doesn't look valid."
+        )
+
+    engine = request.app.state.engine
+    with Session(engine) as session:
+        operator_id = None
+        if payload.boat_id is not None:
+            boat = session.get(Boat, payload.boat_id)
+            if not boat or not boat.active or boat.verified_at is None:
+                return CreateRequestOut(
+                    request_id="", status="rejected",
+                    message="That boat isn't listed; I can take a general callback instead.",
+                )
+            operator_id = boat.operator_id
+        cb = create_callback(
+            session,
+            customer_name=payload.customer_name,
+            customer_phone=payload.customer_phone,
+            reason=payload.reason,
+            boat_id=payload.boat_id,
+            operator_id=operator_id,
+            keywords=payload.keywords,
+            preferred_date=payload.preferred_date,
+        )
+        public_id = cb.public_id if cb else ""
+
+    return CreateRequestOut(
+        request_id=public_id,
+        status="queued",
+        message="Noted — I'll call you back when that changes. Kaayal will only call for this reason.",
     )

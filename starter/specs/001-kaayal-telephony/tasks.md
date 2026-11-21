@@ -1,3 +1,5 @@
+> **SUPERSEDED — phase boundaries lifted.** Historical record only; the live backlog is `/STATUS.md`.
+
 # Phase 1 tasks (sequential)
 
 - [x] T01 — Verify official Sarvam number binding / HTTP tool / supported language docs; document exact constraints. (see `docs/sarvam-dashboard-setup.md`, verified 2026-11-21)

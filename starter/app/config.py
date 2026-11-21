@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     kaayal_phone_number: str | None = None
     # Separate WhatsApp line for operator onboarding (kept distinct from the call number).
     kaayal_whatsapp_number: str | None = None
+    # Callback engine: "simulator" (no real calls) or "sarvam" (stub — needs approval).
+    outbound_provider: str = "simulator"
+    # Simulated customer answer: interested | not_interested | no_answer.
+    sim_callback_outcome: str = "interested"
+    callback_tick_seconds: int = 30
+    # Demo escape hatch: bypass the 09:00–18:00 IST calling window. Default off.
+    demo_ignore_call_window: bool = False
 
 
 def get_settings() -> Settings:

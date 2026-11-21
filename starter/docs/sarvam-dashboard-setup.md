@@ -24,9 +24,10 @@ In the agent builder (**Build**), create four **API tools**. All share:
 | Tool | Method | URL | Purpose |
 | --- | --- | --- | --- |
 | `voice_reply` | POST | `https://kaayal.glitchy.systems/api/voice/reply` | OpenAI-written answers for general questions |
-| `list_boats` | GET | `https://kaayal.glitchy.systems/api/catalog/boats` | Verified boats; optional query `q` = caller's keywords |
+| `list_boats` | GET | `https://kaayal.glitchy.systems/api/catalog/boats` | Verified boats (incl. `available`, `operator_reachable`, `price_display`, `amenities`); optional query `q` |
 | `get_boat` | GET | `https://kaayal.glitchy.systems/api/catalog/boats/{boat_id}` | One boat's details; path `boat_id` |
-| `create_booking_request` | POST | `https://kaayal.glitchy.systems/api/voice/request` | Store a caller's request after consent |
+| `create_booking_request` | POST | `https://kaayal.glitchy.systems/api/voice/request` | Store a caller's request after consent; may return `unavailable`/`unreachable` → offer a callback |
+| `create_callback_request` | POST | `https://kaayal.glitchy.systems/api/voice/callback` | Queue a consented callback; `consent_given=false` + phone = opt-out |
 
 ### Request bodies (use `@` in the body editor to insert variables)
 
@@ -57,11 +58,28 @@ In the agent builder (**Build**), create four **API tools**. All share:
 - Other `@vars` are agent/tool variables the model fills from the conversation; create them in the tool editor if it asks.
 - **Do not** map **User Identifier** (caller's number) or **Call Transcript** anywhere — we collect phone numbers only through the consented `customer_phone` field.
 
+`create_callback_request`:
+```json
+{
+  "customer_name": "@customer_name",
+  "customer_phone": "@customer_phone",
+  "consent_given": "@consent_given",
+  "reason": "@callback_reason",
+  "boat_id": "@boat_id",
+  "keywords": "@keywords",
+  "preferred_date": "@preferred_date",
+  "interaction_id": "@interaction_id"
+}
+```
+
+- `reason` is exactly `operator_unreachable` or `no_availability`.
+
 ### Response templates
 
 - `voice_reply` → `{{reply_text}}` (returns `{reply_text, trace_id}`; optionally save `trace_id` into an agent variable for debugging).
 - `list_boats` / `get_boat` → describe the returned boats naturally.
-- `create_booking_request` → `{{message}}` (returns `{request_id, status, message}`; if `status` is `rejected`, explain honestly).
+- `create_booking_request` → `{{message}}` (returns `{request_id, status, message}`; statuses: `pending`, `rejected`, `unavailable`, `unreachable` — the last two mean offer a callback instead).
+- `create_callback_request` → `{{message}}` (statuses: `queued`, `opted_out`, `rejected`).
 
 ## 3. Paayal agent prompt (paste into agent instructions)
 
@@ -79,15 +97,18 @@ share their number, do not ask again).
        - General question about Kaayal/Kerala/Alappuzha → step 3
        - Question about boats/operators/capacity/routes → step 4
        - Wants to book or leave a request → step 5
-       - Wants a human / something you can't do → step 7
+       - Says "don't call me" / wants scheduled calls stopped → step 8
+       - Wants a human / something you can't do → step 9
 
 [ ] 3. GENERAL ANSWER — call tool:voice_reply, speak the returned text
        naturally. Done → back to step 2 if they ask more.
 
 [ ] 4. BOAT INFO — call tool:list_boats (pass the caller's keywords as q)
        or tool:get_boat for one boat. Speak only what the tool returns:
-       name, operator, capacity, embarkation. If nothing matches, say so
-       and offer step 5. Done → step 2.
+       name, operator, capacity, embarkation, price_display, amenities,
+       available, operator_reachable. If the boat's available is false or
+       operator_reachable is false → say so and offer step 6. If nothing
+       matches, say so and offer step 5. Done → step 2.
 
 [ ] 5. BOOKING REQUEST — collect, skipping anything already given:
        [ ] a. which boat (or "general request" if they don't pick one)
@@ -98,18 +119,32 @@ share their number, do not ask again).
        [ ] f. consent — ask: "I'll share your name and number with the boat
               operator so they can call you back — is that okay?"
        [ ] g. only after a yes: call tool:create_booking_request with
-              consent_given=true; read the returned message aloud.
-       If they decline consent: thank them, don't save anything. Done → step 2.
+              consent_given=true.
+       If the tool returns status "unavailable" or "unreachable" → read the
+       message, then go to step 6. If they decline consent: thank them,
+       don't save anything. Done → step 2.
 
-[ ] 6. CONFIRM NOTHING — after a request is taken, say only that the operator
-       will call to confirm. Never promise booking, price, or availability.
+[ ] 6. CALLBACK OFFER — when a boat is unavailable or the operator can't be
+       reached, offer: "I can call you back when that changes — may I take
+       your number for that?" If yes: call tool:create_callback_request with
+       consent_given=true and reason "no_availability" or
+       "operator_unreachable" (include boat_id when one was discussed).
+       Read the returned message. Done → step 2.
 
-[ ] 7. OUT OF SCOPE / FAILURE — you cannot book, take payments, or call back.
-       If a tool errors, say the service is temporarily unavailable and offer
-       to try again shortly.
+[ ] 7. CONFIRM NOTHING — after a request or callback is taken, say only that
+       the operator (or Paayal) will call. Never promise booking, price,
+       or availability.
+
+[ ] 8. STOP CALLING — if the caller asks not to be called, call
+       tool:create_callback_request with their number and
+       consent_given=false (this cancels scheduled callbacks), then confirm.
+
+[ ] 9. OUT OF SCOPE / FAILURE — you cannot book, take payments, or call back
+       without consent. If a tool errors, say the service is temporarily
+       unavailable and offer to try again shortly.
 ```
 
-Enable all four tools on the agent (global scope).
+Enable all five tools on the agent (global scope).
 
 ## 4. Language and voice
 

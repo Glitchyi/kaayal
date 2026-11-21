@@ -1,3 +1,5 @@
+> **SUPERSEDED — phase boundaries lifted.** Historical record only; the live backlog is `/STATUS.md`.
+
 # Phase 2 tasks
 
 ## Done (implemented + tested, 34/34 pytest passing)

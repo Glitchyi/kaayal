@@ -30,7 +30,9 @@ class WaOnboardIn(BaseModel):
 
 class WaOnboardOut(BaseModel):
     operator_id: int
-    portal_url: str
+    # NULL while the operator awaits admin approval — bot says "pending" instead.
+    portal_url: str | None
+    status: str  # pending_approval | approved
     boat_id: int | None
 
 
@@ -55,10 +57,13 @@ def wa_onboard(payload: WaOnboardIn, request: Request):
         )
         token = new_token()
         if op is None:
+            # Self-signup: no portal access until the owner approves in /admin.
             op = Operator(
                 name=payload.name.strip(),
                 phone=f"+{want_digits}",
                 token_hash=hash_token(token),
+                approved_at=None,
+                source="wa-demo",
             )
         else:
             # Repeat DM → re-issue: the old portal link immediately dies.
@@ -85,7 +90,11 @@ def wa_onboard(payload: WaOnboardIn, request: Request):
             else:
                 boat_id = existing.id
         operator_id = op.id
+        approved = op.approved_at is not None
 
     return WaOnboardOut(
-        operator_id=operator_id, portal_url=f"{base}/portal/{token}", boat_id=boat_id
+        operator_id=operator_id,
+        portal_url=f"{base}/portal/{token}" if approved else None,
+        status="approved" if approved else "pending_approval",
+        boat_id=boat_id,
     )

@@ -3,6 +3,7 @@ import hmac
 import logging
 import time
 import uuid
+from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -10,6 +11,7 @@ from fastapi.responses import JSONResponse
 from sqlmodel import Session
 
 from app.admin import router as admin_router
+from app.callbacks import make_provider, process_due_callbacks
 from app.catalog import router as catalog_router
 from app.config import Settings, get_settings
 from app.db import make_engine
@@ -56,11 +58,33 @@ def create_app(settings: Settings | None = None, responder=None) -> FastAPI:
     settings = settings or get_settings()
     logging.basicConfig(level=settings.log_level.upper())
 
-    app = FastAPI(title="Kaayal Voice Tool Adapter", version="0.2.0")
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        async def _tick():
+            while True:
+                await asyncio.sleep(settings.callback_tick_seconds)
+                try:
+                    n = await asyncio.to_thread(
+                        process_due_callbacks,
+                        app.state.engine,
+                        app.state.callback_provider,
+                        ignore_window=settings.demo_ignore_call_window,
+                    )
+                    if n:
+                        logger.info("callback_engine attempts=%d", n)
+                except Exception:
+                    logger.exception("callback_engine tick failed")
+
+        task = asyncio.create_task(_tick())
+        yield
+        task.cancel()
+
+    app = FastAPI(title="Kaayal Voice Tool Adapter", version="0.3.0", lifespan=lifespan)
     app.state.settings = settings
     app.state.responder = responder or make_responder(settings)
     app.state.rate_limiter = RateLimiter(settings.rate_limit_per_minute)
     app.state.engine = make_engine(settings.database_url)
+    app.state.callback_provider = make_provider(settings)
     with Session(app.state.engine) as session:
         anonymized = anonymize_stale_requests(session)
     logger.info("startup pii_anonymization anonymized=%d", anonymized)

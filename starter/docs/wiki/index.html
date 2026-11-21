@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#F7F5EE">
+<meta name="description" content="Kaayal wiki — how the voice-first boat-booking service works.">
+<title>Kaayal wiki — Home</title>
+<link rel="preconnect" href="https://api.fontshare.com">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Noto+Sans+Malayalam:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="wiki.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="masthead">
+  <a class="wordmark" href="index.html">Kaayal <span class="ml" lang="ml">കായൽ</span></a>
+  <span class="wiki-tag">wiki</span>
+</header>
+<div class="layout">
+<nav class="sidenav" aria-label="Wiki pages">
+  <p class="navhead">Pages</p>
+  <ul>
+    <li><a href="index.html" aria-current="page">Home</a></li>
+    <li><a href="architecture.html">Architecture</a></li>
+    <li><a href="operations.html">Operations</a></li>
+  </ul>
+  <p class="navhead">Source docs</p>
+  <ul class="ext">
+    <li><a href="../README.md">docs/README.md</a></li>
+    <li><a href="../design/KAAYAL_DESIGN_SYSTEM.md">Design system</a></li>
+  </ul>
+</nav>
+<main id="main">
+  <h1>Kaayal, in one page</h1>
+  <p class="lede">
+    Kaayal is a voice-first service that connects callers in Kerala — Malayalam or
+    English — to verified boat operators in Alappuzha. A caller dials a phone
+    number and talks to <strong>Paayal</strong>, a Sarvam-hosted voice agent.
+    Paayal answers general questions, looks up real boat listings, and takes
+    consented booking requests that operators confirm by phone.
+  </p>
+  <p>
+    The product is deliberately narrow: no payments, no confirmed reservations,
+    no invented prices. Kaayal only ever says what its tools return from real
+    data, and a human operator always closes the loop.
+  </p>
+
+  <h2>Read this if you want to…</h2>
+  <table>
+    <thead><tr><th>Goal</th><th>Start here</th></tr></thead>
+    <tbody>
+      <tr><td>Understand how a phone call becomes an answer</td>
+          <td><a href="architecture.html">Architecture</a> — the diagram, tool flows, data model, security model</td></tr>
+      <tr><td>Run it, demo it, or operate it</td>
+          <td><a href="operations.html">Operations</a> — runbook index: local run, Sarvam dashboard, onboarding, demos</td></tr>
+      <tr><td>Change how it looks</td>
+          <td><a href="../design/KAAYAL_DESIGN_SYSTEM.md">Design system</a> — tokens and rules; the wiki you are reading uses them</td></tr>
+      <tr><td>Know what is out of scope</td>
+          <td><a href="../REVIEW_DECISIONS.md">Review decisions</a> and <a href="../PHASE2_CLARIFICATIONS.md">Phase 2 questions</a></td></tr>
+    </tbody>
+  </table>
+
+  <h2>The sixty-second version</h2>
+  <ol class="flow">
+    <li>A caller dials the Kaayal number. <strong>Sarvam</strong> owns the call:
+        speech-to-text, a hosted LLM running the Paayal prompt, text-to-speech.</li>
+    <li>When the caller needs something concrete, Paayal calls one of five
+        <strong>HTTP tools</strong> on our FastAPI backend over public HTTPS.</li>
+    <li>The backend either asks <strong>OpenAI</strong> to draft a short spoken
+        answer (<code>voice_reply</code>), or reads/writes the <strong>SQLite
+        catalog</strong> directly (boats, booking requests, callbacks).</li>
+    <li>Operators see their requests on a private <strong>portal link</strong>;
+        the owner runs everything from <code>/admin</code>. A background
+        <strong>callback engine</strong> re-contacts consenting callers when
+        availability changes (simulated until outbound calls are approved).</li>
+  </ol>
+  <p><a href="architecture.html">Full architecture walkthrough →</a></p>
+
+  <h2>Glossary</h2>
+  <table>
+    <thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Paayal</strong></td><td>The Sarvam-hosted voice agent persona. Its prompt checklist is the only control we have over when tools fire.</td></tr>
+      <tr><td><strong>Tool / API tool</strong></td><td>An HTTP endpoint the Sarvam agent invokes mid-call. All five live under <code>/api/…</code> and share one auth header.</td></tr>
+      <tr><td><strong>Tool token</strong></td><td><code>X-Kaayal-Tool-Token</code> — shared secret (<code>SARVAM_TOOL_SHARED_SECRET</code>) gating every tool endpoint.</td></tr>
+      <tr><td><strong>Portal token</strong></td><td>The unguessable URL an operator uses instead of a login. Only its SHA-256 hash is stored; the raw link is shown once.</td></tr>
+      <tr><td><strong>Booking request</strong></td><td>A consented caller request (<code>REQ-…</code>) an operator can confirm, decline, or block. Never a confirmed reservation.</td></tr>
+      <tr><td><strong>Callback</strong></td><td>A consented <code>CB-…</code> row the engine retries when a boat becomes available or an operator reachable again.</td></tr>
+      <tr><td><strong><code>source=</code></strong></td><td>Provenance stamp on operators/boats: <code>admin</code>, <code>wa-demo</code>, <code>web-signup</code>, <code>demo-seed</code>. Demo rows are clearly labeled.</td></tr>
+    </tbody>
+  </table>
+
+  <footer class="colophon">
+    Kaayal wiki · source of truth for code behavior is <code>starter/app/</code>;
+    for product scope it is <code>starter/AGENTS.md</code> and <code>specs/</code>.
+  </footer>
+</main>
+</div>
+</body>
+</html>

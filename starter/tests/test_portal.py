@@ -39,7 +39,7 @@ async def client(app):
 
 def seed_operator(app, verified=True):
     with Session(app.state.engine) as s:
-        op = Operator(name="Raj Boats", phone="+910000000001", token_hash=hash_token(OP_TOKEN))
+        op = Operator(name="Raj Boats", phone="+910000000001", token_hash=hash_token(OP_TOKEN), approved_at=utcnow())
         s.add(op)
         s.commit()
         s.refresh(op)
@@ -167,7 +167,7 @@ async def test_portal_cannot_touch_other_operators_request(app, client):
     _, boat = seed_operator(app)
     req = seed_request(app, boat.id)
     with Session(app.state.engine) as s:
-        s.add(Operator(name="Other", phone="+9102", token_hash=hash_token("other-token")))
+        s.add(Operator(name="Other", phone="+9102", token_hash=hash_token("other-token"), approved_at=utcnow()))
         s.commit()
     r = await client.post("/portal/other-token/requests/REQ-0001-ab12/confirm")
     assert r.status_code == 404

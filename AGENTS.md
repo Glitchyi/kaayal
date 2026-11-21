@@ -1,6 +1,6 @@
 # AGENTS.md — Kaayal (കായൽ) workspace
 
-The working app + product guardrails live in `starter/` — **read `starter/AGENTS.md` first**; its scope rules (no unapproved Phase 2 features, no secrets in code, honest reporting) still apply.
+The working app + product guardrails live in `starter/` — **read `starter/AGENTS.md` first**. Phase gates were lifted by the owner: the goal is one integrated prototype (voice, catalog, inquiries, portal, admin, simulated callbacks, demo WhatsApp onboarding). `STATUS.md` is the live backlog.
 
 ## Installed design skills (project scope, `.devin/skills/`)
 
@@ -31,7 +31,7 @@ After implementing UI:
 ## Anti-slop (binding)
 No generic gradients, glassmorphism, identical rounded card grids, glowing orbs, decorative motion, emoji icons, fake testimonials/inventory, or arbitrary colors/spacing. Identity = Backwater Editorial; see the design system doc.
 
-## Scope gates (unchanged)
-- Phase 1 telephony is live — do not break it (`POST /api/voice/reply`, `/health`).
-- Phase 2 surfaces (portal/admin/landing/catalog/requests) are owner-approved scope.
-- WhatsApp (openwa), payments, outbound calls, customer web booking = deferred; ask first.
+## Scope gates (updated — phase gates lifted)
+- Do not break the live voice path (`POST /api/voice/reply`, `/health`) or existing portal/admin flows.
+- Still excluded without owner approval: real outbound calls/charges, real operator/customer contact, payments, eKYC, external credentials, production deploy changes, destructive ops.
+- WhatsApp onboarding stays the open-wa demo path; Business API migration is documented in `starter/docs/wa-demo.md`.

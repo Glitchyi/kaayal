@@ -1,3 +1,5 @@
+> **SUPERSEDED — phase boundaries lifted.** Historical record only; the live backlog is `/STATUS.md`.
+
 # Feature spec: Kaayal Phase 2 — Operator Catalog + Portal + Booking Requests
 
 **Status:** DRAFT for owner review — implementation authorized for catalog slice only after owner sign-off.

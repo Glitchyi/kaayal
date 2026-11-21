@@ -17,19 +17,27 @@ class BoatOut(BaseModel):
     id: int
     name: str
     operator_name: str
+    operator_reachable: bool
     capacity: int | None
     embarkation_point: str | None
     photo_urls: list[str]
+    amenities: list[str]
+    price_display: str | None
+    available: bool
 
 
-def _to_out(boat: Boat, operator_name: str) -> BoatOut:
+def _to_out(boat: Boat, op: Operator) -> BoatOut:
     return BoatOut(
         id=boat.id,
         name=boat.name,
-        operator_name=operator_name,
+        operator_name=op.name,
+        operator_reachable=op.reachable,
         capacity=boat.capacity,
         embarkation_point=boat.embarkation_point,
         photo_urls=boat.photo_urls,
+        amenities=boat.amenities,
+        price_display=boat.price_display,
+        available=boat.available,
     )
 
 
@@ -38,7 +46,7 @@ def list_boats(request: Request, q: str | None = None):
     engine = request.app.state.engine
     with Session(engine) as session:
         stmt = (
-            select(Boat, Operator.name)
+            select(Boat, Operator)
             .join(Operator, Boat.operator_id == Operator.id)
             .where(Boat.active, Boat.verified_at.is_not(None), Operator.active)
         )
@@ -60,7 +68,7 @@ def get_boat(boat_id: int, request: Request):
     engine = request.app.state.engine
     with Session(engine) as session:
         row = session.exec(
-            select(Boat, Operator.name)
+            select(Boat, Operator)
             .join(Operator, Boat.operator_id == Operator.id)
             .where(
                 Boat.id == boat_id,
@@ -73,5 +81,5 @@ def get_boat(boat_id: int, request: Request):
         from fastapi import HTTPException
 
         raise HTTPException(status_code=404, detail="boat_not_found")
-    boat, op_name = row
-    return _to_out(boat, op_name)
+    boat, op = row
+    return _to_out(boat, op)

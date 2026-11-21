@@ -1,3 +1,5 @@
+> **SUPERSEDED — phase boundaries lifted.** Historical record only; the live backlog is `/STATUS.md`.
+
 # Feature spec: Kaayal Phase 1 — Inbound Voice + OpenAI Reply
 
 **Status:** Draft for owner review; implementation authorized only after review prompt and explicit instruction.

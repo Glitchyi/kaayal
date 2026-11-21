@@ -1,28 +1,25 @@
 # AGENTS.md — Kaayal (കായൽ), Devin CLI guardrails
 
-Read `specs/001-kaayal-telephony/spec.md`, `plan.md`, `tasks.md`, `contracts/openapi.yaml` and `docs/REVIEW_DECISIONS.md` before writing code.
+Single integrated prototype — phase gates were lifted by the owner. Historical specs in `specs/001-*` and `specs/002-*` are kept for traceability but their phase boundaries are **superseded**; the live backlog is `STATUS.md` at the repo root.
 
-## First-principles scope
+## Scope
 
-- **Phase 1 = inbound phone call → Sarvam-hosted agent → protected FastAPI tool → OpenAI Responses API → spoken reply.** This is the ONLY implementation scope.
-- **No databases, customer records, callbacks, operator inventory, fleet onboarding, booking tools, dashboards, WhatsApp, payments, KYC, Aadhaar, website, maps, Iroh, P2P, agent orchestration frameworks, or infrastructure clusters** until owner explicitly opens Phase 2. Do not generate synthetic tourism/operator data.
-- Sarvam owns the call and hosted conversation. OpenAI is invoked through an HTTP tool; never misrepresent OpenAI as natively replacing the Sarvam-hosted runtime. Confirm official provider payload/response schemas before implementation.
-- Do not provision a new number, trigger unapproved paid services, or place calls without explicit permission. The user already has a Sarvam number.
-- Phase 2 is **questions and research only**. Before any Phase 2 implementation, ask the owner the questions in `docs/PHASE2_CLARIFICATIONS.md` and receive approval.
+- Full prototype: inbound Paayal voice calls (Sarvam) → tool-authed FastAPI → OpenAI for free-form answers; verified boat catalog; booking *inquiries* (never confirmations); operator portal; owner admin; event-driven simulated callbacks; demo WhatsApp onboarding.
+- Still out: payments, Aadhaar/eKYC, subscriptions, paid promotion, P2P, real outbound calls without owner approval.
+- Sarvam owns the call and hosted conversation. OpenAI is invoked only through the `voice_reply` HTTP tool; never misrepresent it as replacing Sarvam's runtime. Catalog/booking/callback data never passes through a language model.
+- Demo data must be clearly labeled (DEMO badge / `source` fields). Never present simulated inventory or the simulated outbound dialer as live telephony.
+- Do not place real outbound calls, trigger paid services, or contact real operators/customers without explicit permission. The Sarvam outbound adapter stays a stub until the owner approves real calls.
 
 ## Security + correctness
 
-- Never expose `OPENAI_API_KEY` or Sarvam credentials in code, browser, logs, or git; `.env.example` only has placeholders.
-- The tool endpoint requires authentication, validated payloads, bounded input size, tight timeouts, and a safe fallback on failure.
-- Do not log raw phone numbers, full transcripts, API keys, or tool secrets. Use opaque request/interaction IDs for tracing.
-- Avoid durable storage for Phase 1. Test with mocked OpenAI calls; record real-call evidence only with the user's authorization.
-- Respond in the caller's language where supported, naturally and briefly. Do not invent prices, operators, availability, or successful actions.
+- Never expose `OPENAI_API_KEY`, Sarvam credentials, admin/portal tokens, or raw DB contents in code, browser, logs, or git; `.env.example` has placeholders only. Portal tokens are stored SHA-256-hashed; raw tokens are shown to the owner exactly once.
+- Tool endpoints require the `X-Kaayal-Tool-Token` secret, validated payloads (extra fields forbidden), bounded input size, tight timeouts, and safe fallbacks.
+- Do not log raw phone numbers, transcripts, API keys, or tool secrets. Use public IDs (`REQ-…`, `CB-…`) and trace IDs.
+- Customer PII is consent-gated, masked until operator confirmation, and anonymized after 90 days (`app/pii.py`). Callbacks honor opt-outs, IST calling hours, retry caps, and expiry — don't bypass these except via the documented `DEMO_IGNORE_CALL_WINDOW` flag.
+- Respond in the caller's language, briefly. Never invent prices, operators, availability, or successful actions.
 
 ## Workflow
 
-1. `00-review.md`: verify platform/API assumptions and request genuinely blocking manual settings.
-2. `01-implement-phase1.md`: implement minimal FastAPI app, tests, docs.
-3. `02-live-call-verification.md`: validate webhook/tool invocations and live speech, with owner supplying the call.
-4. `03-phase2-questions-only.md`: gather choices; do not code Phase 2.
-
-At each milestone report: what worked, actual evidence, what is untested, and the next manual action. No false success reports.
+- Tests: `cd starter && .venv/bin/python -m pytest -q` — keep everything green.
+- New boat/operator state changes that affect availability must fire the callbacks engine (`fire_boat_available`, `fire_operator_reachable`).
+- At each milestone report: what worked, actual evidence, what is untested, and the next manual action. No false success reports.

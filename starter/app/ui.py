@@ -103,6 +103,30 @@ button.danger:hover {{ background: #F3E3E1; color: #7A2E2E; border-color: #7A2E2
 .small {{ font-size: .85rem; }}
 .rule {{ border: 0; border-top: 1px solid var(--line); margin: 2.5rem 0; }}
 .ml {{ font-family: 'Noto Sans Malayalam', {BODY_FONT}; }}
+.topnav {{
+  display: flex; align-items: baseline; gap: 1.15rem; flex-wrap: wrap;
+  border-bottom: 1px solid var(--line); padding-bottom: .85rem; margin-bottom: 2.25rem;
+}}
+.topnav .wordmark {{
+  font-family: {DISPLAY_FONT}; font-size: 1.35rem; color: var(--lagoon);
+  text-decoration: none; margin-right: auto;
+}}
+.topnav .wordmark:hover {{ color: var(--teal); }}
+.topnav a.navlink {{ color: var(--ink); text-decoration: none; font-size: .95rem; }}
+.topnav a.navlink:hover {{ color: var(--teal); text-decoration: underline; }}
+.topnav .navcall {{ font-size: .85rem; padding: .35rem .8rem; text-decoration: none; }}
+.site-footer {{
+  border-top: 1px solid var(--line); margin-top: 3rem; padding-top: 1.1rem;
+  font-size: .85rem; color: #5E7A74;
+}}
+.chip {{
+  display: inline-block; padding: .1rem .55rem; border: 1px solid var(--mist);
+  border-radius: 999px; font-size: .8rem; color: var(--lagoon); margin: .1rem .15rem .1rem 0;
+}}
+.error-box {{
+  border: 1px solid #D9AFAF; border-left: 3px solid #7A2E2E; border-radius: .25rem;
+  background: #F3E3E1; color: #7A2E2E; padding: .7rem 1rem; margin: 1rem 0; font-size: .95rem;
+}}
 code {{
   font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: .85em;
   background: var(--mist); padding: .1em .4em; border-radius: .25rem;
@@ -114,8 +138,12 @@ code {{
 """
 
 
-def page(title: str, body: str, description: str = "") -> str:
-    """Full HTML page shell. Caller must escape dynamic content via esc()."""
+def page(title: str, body: str, description: str = "",
+         nav: str = "", footer: str = "") -> str:
+    """Full HTML page shell. Caller must escape dynamic content via esc().
+
+    `nav` renders before <main>, `footer` after it — both are trusted HTML
+    built by the caller (e.g. site.py's shared chrome)."""
     desc = f'<meta name="description" content="{html.escape(description)}">' if description else ""
     return (
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
@@ -124,7 +152,7 @@ def page(title: str, body: str, description: str = "") -> str:
         f"<title>{html.escape(title)}</title>{_FONT_LINKS}"
         f"<style>{CSS}</style></head><body>"
         '<a class="skip" href="#main">Skip to content</a>'
-        f'<main id="main">{body}</main></body></html>'
+        f'{nav}<main id="main">{body}</main>{footer}</body></html>'
     )
 
 

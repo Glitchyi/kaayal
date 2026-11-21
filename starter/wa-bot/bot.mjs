@@ -85,10 +85,13 @@ function start(client) {
         const r = await onboard({ phone, name: s.name, boat_name, embarkation });
         await client.sendText(
           chatId,
-          `You're on Kaayal, ${s.name}!\n\n` +
-            `Your private portal link (it IS your login — keep it secret):\n${r.portal_url}\n\n` +
-            "Open it to add boat details and photos. The Kaayal owner verifies every boat " +
-            "before callers hear about it. If the link ever leaks, ask us to re-issue it."
+          r.portal_url
+            ? `You're on Kaayal, ${s.name}!\n\n` +
+                `Your private portal link (it IS your login — keep it secret):\n${r.portal_url}\n\n` +
+                "Open it to add boat details and photos. The Kaayal owner verifies every boat " +
+                "before callers hear about it. If the link ever leaks, ask us to re-issue it."
+            : `Thanks ${s.name} — you're registered with Kaayal, status: *pending verification*. ` +
+                "The owner will review your details and we'll send your portal link here once approved."
         );
         state.delete(chatId);
       }
