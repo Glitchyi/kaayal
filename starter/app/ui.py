@@ -275,13 +275,11 @@ td.actions form.inline button {{ min-height: 2.5rem; padding: .35rem .8rem; font
 @media (max-width: 640px) {{
   body.site .topnav a.navlink {{ display: none; }}
   body.site .topnav {{ padding: 1rem 0 .85rem; }}
-  /* The wordmark becomes the header: set to fill the column edge to edge
-     (inside the page gutter), Latin left, Malayalam right. */
+  /* The wordmark becomes the header: the same wordmark, just scaled up so
+     it fills the column inside the page gutter. */
   body.site .topnav .wordmark {{
-    display: flex; justify-content: space-between; align-items: baseline;
-    flex-basis: 100%; margin: 0; font-size: 13vw; line-height: 1; letter-spacing: -.02em;
+    flex-basis: 100%; margin: 0; font-size: 12.2vw; line-height: 1.1; white-space: nowrap;
   }}
-  body.site .topnav .wordmark .ml {{ font-size: .82em; }}
 }}
 .fab-call {{
   position: fixed; right: 1.25rem; z-index: 6;
