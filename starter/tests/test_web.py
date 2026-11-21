@@ -259,3 +259,9 @@ async def test_landing_has_one_h1_and_valid_metadata(client):
     assert len(title) <= 60, title
     desc = re.search(r'name="description" content="(.*?)"', r.text)
     assert desc and len(desc.group(1)) <= 155
+
+
+async def test_webp_served_with_image_mime(client):
+    r = await client.get("/static/paayal.webp")
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "image/webp"

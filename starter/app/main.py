@@ -1,6 +1,7 @@
 import asyncio
 import hmac
 import logging
+import mimetypes
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -99,6 +100,9 @@ def create_app(settings: Settings | None = None, responder=None) -> FastAPI:
     # gzips ~8x). The 2KB floor leaves small /api JSON replies, including the
     # live voice tool path, untouched.
     app.add_middleware(GZipMiddleware, minimum_size=2048)
+    # python:3.11-slim has no system MIME table entry for .webp, so
+    # StaticFiles would serve it as application/octet-stream.
+    mimetypes.add_type("image/webp", ".webp")
     static_dir = Path(__file__).parent / "static"
     if static_dir.is_dir():
         app.mount("/static", StaticFiles(directory=static_dir), name="static")
