@@ -1,0 +1,56 @@
+# Kaayal demo stack — app + open-wa onboarding bot + cloudflared tunnel.
+# Replaces the unsupervised native processes (they died on reboot/logout).
+#
+#   colima start                          # one-time: container VM
+#   docker compose up -d --build          # build + run everything
+#   docker compose logs -f wa-bot         # watch for the pairing QR
+#
+# State lives in named volumes:
+#   kaayal-data  -> /data/kaayal.db (seeded from starter/kaayal.db at first up)
+#   wa-session   -> open-wa pairing (kaayal-demo.data.json)
+name: kaayal
+
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      DATABASE_URL: sqlite:////data/kaayal.db
+    volumes:
+      - kaayal-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/health',timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  wa-bot:
+    build: ./wa-bot
+    env_file: .env
+    environment:
+      KAAYAL_API_BASE: http://app:8000
+    volumes:
+      - wa-session:/session
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.11.1
+    command: tunnel --config /etc/cloudflared/config.yml run
+    volumes:
+      - ./cloudflared/config.yml:/etc/cloudflared/config.yml:ro
+      - ${HOME}/.cloudflared/9af85681-71d7-4370-a455-11f14d293d1b.json:/etc/cloudflared/creds.json:ro
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  kaayal-data:
+  wa-session:

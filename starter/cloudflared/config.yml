@@ -1,0 +1,9 @@
+# Container twin of ~/.cloudflared/config.yml — identical except the
+# origin and credentials paths, which resolve inside the compose network.
+tunnel: 9af85681-71d7-4370-a455-11f14d293d1b
+credentials-file: /etc/cloudflared/creds.json
+
+ingress:
+  - hostname: kaayal.glitchy.systems
+    service: http://app:8000
+  - service: http_status:404

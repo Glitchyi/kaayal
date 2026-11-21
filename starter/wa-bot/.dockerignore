@@ -1,5 +1,3 @@
-node_modules/
-sessions/
-*.log
-Dockerfile
-.dockerignore
+node_modules
+sessions
+kaayal-demo.data.json

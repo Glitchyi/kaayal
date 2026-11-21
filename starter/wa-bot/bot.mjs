@@ -53,6 +53,16 @@ const WELCOME =
 
 function start(client) {
   console.log("Kaayal wa-bot connected. Waiting for DMs…");
+  client.onStateChanged((s) => {
+    console.log(`wa-bot state: ${s}`);
+    // Unrecoverable states need a re-pair; exit so the supervisor (restart
+    // policy / launchd) respawns us and prints a fresh QR instead of
+    // sitting alive-but-dead.
+    if (["CONFLICT", "UNPAIRED", "UNPAIRED_IDLE"].includes(s)) {
+      console.error("session unpaired/conflicted — exiting for restart");
+      process.exit(1);
+    }
+  });
   client.onMessage(async (msg) => {
     try {
       if (msg.fromMe || msg.isGroupMsg || msg.type !== "chat") return;
