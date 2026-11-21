@@ -274,12 +274,11 @@ td.actions form.inline button {{ min-height: 2.5rem; padding: .35rem .8rem; font
    section links read as clutter; the call buttons carry the main action. */
 @media (max-width: 640px) {{
   body.site .topnav a.navlink {{ display: none; }}
-  body.site .topnav {{ padding: 1rem 0 .85rem; }}
-  /* The wordmark becomes the header: the same wordmark, just scaled up so
-     it fills the column inside the page gutter. */
-  body.site .topnav .wordmark {{
-    flex-basis: 100%; margin: 0; font-size: 12.2vw; line-height: 1.1; white-space: nowrap;
-  }}
+  /* Small wordmark in the top-left corner: the desktop size, with the
+     space above it equal to the page gutter on its left, and the same
+     below so it sits centred in the header strip. */
+  body.site .topnav {{ padding: var(--gutter) 0; align-items: center; }}
+  body.site .topnav .wordmark {{ font-size: 1.35rem; line-height: 1; margin: 0; }}
 }}
 .fab-call {{
   position: fixed; right: 1.25rem; z-index: 6;
