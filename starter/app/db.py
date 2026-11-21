@@ -50,6 +50,7 @@ class BookingRequest(SQLModel, table=True):
     status: str = "pending"
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
+    anonymized_at: datetime | None = Field(default=None)
 
 
 def make_engine(url: str = "sqlite:///kaayal.db"):

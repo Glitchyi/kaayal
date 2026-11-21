@@ -3,7 +3,9 @@
 """
 
 import hashlib
+import re
 import secrets
+from urllib.parse import quote
 
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -21,6 +23,12 @@ def hash_token(token: str) -> str:
 
 def new_token() -> str:
     return secrets.token_urlsafe(32)
+
+
+def _wa_link(phone_digits: str, text: str) -> str:
+    """Click-to-chat deep link — opens WhatsApp on the operator's own device
+    with a prefilled message. Kaayal never sends messages itself."""
+    return f"https://wa.me/{phone_digits}?text={quote(text)}"
 
 
 def _get_operator(session: Session, token: str) -> Operator:
@@ -60,9 +68,20 @@ def dashboard(token: str, request: Request):
     req_cards = ""
     for r in requests:
         if r.status == "confirmed":
+            wa = ""
+            digits = re.sub(r"\D", "", r.customer_phone)
+            if len(digits) >= 10:
+                msg = (f"Hello {r.customer_name}, this is {op.name} from Kaayal "
+                       f"about your boat request {r.public_id}")
+                if r.preferred_date:
+                    msg += f" on {r.preferred_date}"
+                if r.group_size:
+                    msg += f" for {r.group_size} guests"
+                wa = (f" <a class=btn href='{_wa_link(digits, msg + '.')}'"
+                      f" target='_blank' rel='noopener'>WhatsApp customer</a>")
             contact = (
                 f"<p><b>Customer:</b> {_esc(r.customer_name)} — "
-                f"<b>call:</b> <a href='tel:{_esc(r.customer_phone)}'>{_esc(r.customer_phone)}</a></p>"
+                f"<b>call:</b> <a href='tel:{_esc(r.customer_phone)}'>{_esc(r.customer_phone)}</a>{wa}</p>"
             )
         else:
             contact = f"<p><b>Customer:</b> {_esc(r.customer_name)} <span class=muted small>(number revealed after you confirm)</span></p>"

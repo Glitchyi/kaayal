@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     admin_token: str | None = None
     # Public call-in number shown on the landing page (E.164 or display format).
     kaayal_phone_number: str | None = None
+    # Separate WhatsApp line for operator onboarding (kept distinct from the call number).
+    kaayal_whatsapp_number: str | None = None
 
 
 def get_settings() -> Settings:

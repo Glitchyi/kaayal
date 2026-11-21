@@ -24,20 +24,42 @@ def _check_admin(request: Request, t: str | None) -> str:
     return t
 
 
+def _portal_link_page(title: str, name: str, url: str, t: str, note: str) -> HTMLResponse:
+    """One-time display of a raw portal URL — the only place a token is ever shown."""
+    body = f"""
+<h1>{title}</h1>
+<div class=card>
+<p><b>{_esc(name)}</b> — share this portal link with the operator (it is their only access; keep it private):</p>
+<p><code>{_esc(url)}</code></p>
+<p class="muted small">{_esc(note)}</p>
+</div>
+<p><a href='/admin?t={_esc(t)}'>← Back to admin</a></p>
+"""
+    return HTMLResponse(_page(f"{title} — Kaayal", body))
+
+
+def _op_row(o: Operator, t: str) -> str:
+    badge = '<span class="badge ok">active</span>' if o.active else '<span class="badge bad">inactive</span>'
+    verb, label, cls = ("deactivate", "Deactivate", "danger") if o.active else ("reactivate", "Reactivate", "secondary")
+    return (
+        f"<tr><td>{o.id}</td><td>{_esc(o.name)}</td><td>{_esc(o.phone)}</td><td>{badge}</td>"
+        f"<td><form class=inline method=post action='/admin/operators/{o.id}/reissue?t={t}'>"
+        f"<button class=secondary>Reissue link</button></form> "
+        f"<form class=inline method=post action='/admin/operators/{o.id}/{verb}?t={t}'>"
+        f"<button class={cls}>{label}</button></form></td></tr>"
+    )
+
+
 @router.get("", response_class=HTMLResponse)
 def admin_home(request: Request, t: str | None = None):
     _check_admin(request, t)
     engine = request.app.state.engine
     with Session(engine) as session:
-        operators = session.exec(select(Operator).where(Operator.active)).all()
+        operators = session.exec(select(Operator).order_by(Operator.id)).all()
         boats = session.exec(select(Boat, Operator.name).join(Operator, Boat.operator_id == Operator.id).where(Boat.active)).all()
         requests = session.exec(select(BookingRequest).order_by(BookingRequest.created_at.desc())).all()
 
-    op_rows = "".join(
-        f"<tr><td>{o.id}</td><td>{_esc(o.name)}</td><td>{_esc(o.phone)}</td>"
-        f"<td><code>/portal/&lt;token&gt;</code> (reissue not supported — create a new operator)</td></tr>"
-        for o in operators
-    ) or "<tr><td colspan=4>No operators yet.</td></tr>"
+    op_rows = "".join(_op_row(o, t) for o in operators) or "<tr><td colspan=5>No operators yet.</td></tr>"
 
     boat_rows = "".join(
         f"<tr><td>{b.id}</td><td>{_esc(b.name)}</td><td>{_esc(op)}</td>"
@@ -57,7 +79,7 @@ def admin_home(request: Request, t: str | None = None):
 <h1>Owner admin</h1>
 <p class=muted>Operators, listings, and every booking request.</p>
 <h2>Operators</h2>
-<table><thead><tr><th>#</th><th>Name</th><th>Phone</th><th>Portal link</th></tr></thead><tbody>{op_rows}</tbody></table>
+<table><thead><tr><th>#</th><th>Name</th><th>Phone</th><th>Status</th><th>Actions</th></tr></thead><tbody>{op_rows}</tbody></table>
 <div class=card>
 <h3>Add operator</h3>
 <form method=post action='/admin/operators?t={t}'>
@@ -87,16 +109,52 @@ def create_operator(request: Request, t: str | None = None, name: str = Form(max
         session.commit()
     base = request.app.state.settings.kaayal_public_base_url.rstrip("/")
     url = f"{base}/portal/{token}"
-    body = f"""
-<h1>Operator created</h1>
-<div class=card>
-<p><b>{_esc(name)}</b> — share this portal link with the operator (it is their only access; keep it private):</p>
-<p><code>{_esc(url)}</code></p>
-<p class="muted small">Raw tokens are never stored — if the link is lost, create a new operator.</p>
-</div>
-<p><a href='/admin?t={_esc(t)}'>← Back to admin</a></p>
-"""
-    return HTMLResponse(_page("Operator created — Kaayal", body))
+    return _portal_link_page(
+        "Operator created", name, url, t,
+        "Raw tokens are never stored — if the link is lost, reissue a new one from the admin list.",
+    )
+
+
+@router.post("/operators/{op_id}/reissue", response_class=HTMLResponse)
+def reissue_operator_link(op_id: int, request: Request, t: str | None = None):
+    _check_admin(request, t)
+    token = new_token()
+    engine = request.app.state.engine
+    with Session(engine) as session:
+        op = session.get(Operator, op_id)
+        if not op:
+            raise HTTPException(status_code=404, detail="not_found")
+        op.token_hash = hash_token(token)
+        name = op.name
+        session.commit()
+    base = request.app.state.settings.kaayal_public_base_url.rstrip("/")
+    url = f"{base}/portal/{token}"
+    return _portal_link_page(
+        "Portal link reissued", name, url, t,
+        "The previous link stopped working immediately. Raw tokens are never stored — if this link is lost, reissue again.",
+    )
+
+
+@router.post("/operators/{op_id}/deactivate")
+def deactivate_operator(op_id: int, request: Request, t: str | None = None):
+    return _set_operator_active(op_id, False, request, t)
+
+
+@router.post("/operators/{op_id}/reactivate")
+def reactivate_operator(op_id: int, request: Request, t: str | None = None):
+    return _set_operator_active(op_id, True, request, t)
+
+
+def _set_operator_active(op_id: int, active: bool, request: Request, t: str | None):
+    _check_admin(request, t)
+    engine = request.app.state.engine
+    with Session(engine) as session:
+        op = session.get(Operator, op_id)
+        if not op:
+            raise HTTPException(status_code=404, detail="not_found")
+        op.active = active
+        session.commit()
+    return RedirectResponse(f"/admin?t={t}", status_code=303)
 
 
 @router.post("/boats/{boat_id}/verify")

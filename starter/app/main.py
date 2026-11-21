@@ -7,12 +7,14 @@ import uuid
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlmodel import Session
 
 from app.admin import router as admin_router
 from app.catalog import router as catalog_router
 from app.config import Settings, get_settings
 from app.db import make_engine
 from app.openai_adapter import OpenAIAdapterError, make_responder
+from app.pii import anonymize_stale_requests
 from app.portal import router as portal_router
 from app.requests_api import router as requests_router
 from app.schemas import VoiceReplyRequest, VoiceReplyResponse
@@ -58,6 +60,9 @@ def create_app(settings: Settings | None = None, responder=None) -> FastAPI:
     app.state.responder = responder or make_responder(settings)
     app.state.rate_limiter = RateLimiter(settings.rate_limit_per_minute)
     app.state.engine = make_engine(settings.database_url)
+    with Session(app.state.engine) as session:
+        anonymized = anonymize_stale_requests(session)
+    logger.info("startup pii_anonymization anonymized=%d", anonymized)
 
     @app.exception_handler(RequestValidationError)
     async def validation_handler(request: Request, exc: RequestValidationError):

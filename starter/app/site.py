@@ -1,5 +1,8 @@
 """Public landing page — Backwater Editorial product page."""
 
+import re
+from urllib.parse import quote
+
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from sqlmodel import Session, select
@@ -35,11 +38,22 @@ def landing(request: Request):
         ).all()
 
     phone = request.app.state.settings.kaayal_phone_number
+    digits = re.sub(r"\D", "", phone or "")
     call_line = (
-        f'<p style="margin-top:1.25rem"><a class=btn href="tel:{_esc(phone)}" '
+        f'<p style="margin-top:1.25rem"><a class=btn href="tel:+{_esc(digits)}" '
         f'style="text-decoration:none">Call {_esc(phone)}</a></p>'
         if phone
         else '<p class="muted" style="margin-top:1.25rem">Call the Kaayal number to talk to Paayal.</p>'
+    )
+    wa = request.app.state.settings.kaayal_whatsapp_number
+    wa_digits = re.sub(r"\D", "", wa or "")
+    operator_cta = (
+        f'<p style="margin-top:.75rem"><a class=btn target="_blank" rel="noopener" '
+        f'href="https://wa.me/{_esc(wa_digits)}?text='
+        f'{quote("Hi Kaayal, I run a boat in Alappuzha and want to join as an operator.")}" '
+        f'style="text-decoration:none">WhatsApp {_esc(wa)} to start onboarding</a></p>'
+        if wa
+        else ""
     )
 
     boats = "".join(
@@ -78,8 +92,9 @@ def landing(request: Request):
 {boats}
 
 <hr class=rule>
-<p class=muted small><b>For operators.</b> Run a boat out of Alappuzha? Ask the Kaayal team for
-your portal link — you list your boats once, get booking requests, and confirm by a call back.</p>
+<p class=muted small><b>For operators.</b> Run a boat out of Alappuzha? Message us on WhatsApp
+to start onboarding — you list your boats once, get booking requests, and confirm by a call back.</p>
+{operator_cta}
 <p class=muted small>Every listing is verified by the Kaayal owner before callers hear about it.
 Kaayal never confirms prices, availability, or bookings on its own — the operator always does.</p>
 """
