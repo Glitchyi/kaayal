@@ -4,10 +4,12 @@ import logging
 import time
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session
 
 from app.admin import router as admin_router
@@ -80,6 +82,9 @@ def create_app(settings: Settings | None = None, responder=None) -> FastAPI:
         task.cancel()
 
     app = FastAPI(title="Kaayal Voice Tool Adapter", version="0.3.0", lifespan=lifespan)
+    static_dir = Path(__file__).parent / "static"
+    if static_dir.is_dir():
+        app.mount("/static", StaticFiles(directory=static_dir), name="static")
     app.state.settings = settings
     app.state.responder = responder or make_responder(settings)
     app.state.rate_limiter = RateLimiter(settings.rate_limit_per_minute)

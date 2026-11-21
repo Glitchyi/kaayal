@@ -88,12 +88,13 @@ def _base_url(request: Request) -> str:
 
 def _public(request: Request, title: str, body: str, description: str = "",
             head_extra: str = "") -> HTMLResponse:
-    canonical = _base_url(request) + request.url.path
+    base = _base_url(request)
     return HTMLResponse(_page(
         title, body, description=description,
         nav=_nav(request), footer=_footer(request),
-        canonical_url=canonical,
+        canonical_url=base + request.url.path,
         head_extra=_ORG_JSONLD + head_extra,
+        og_image=base + "/static/paayal.png",
     ))
 
 
@@ -158,9 +159,9 @@ def landing(request: Request):
     body = f"""
 <h1 style="font-size:2.6rem">The backwaters,<br>a phone call away.</h1>
 <p style="font-size:1.15rem;max-width:34rem">
-  Paayal is Kaayal’s voice assistant. Call and ask — in <b>Malayalam</b> or <b>English</b> —
-  about boat operators in Alappuzha, and leave a booking inquiry. The operator calls you
-  back to confirm. No app, no forms, no account.</p>
+  Paayal is Kaayal’s voice assistant. Call and ask — in <b>Malayalam</b>, <b>English</b>,
+  or nine other Indian languages — about boat operators in Alappuzha, and leave a
+  booking inquiry. The operator calls you back to confirm. No app, no forms, no account.</p>
 {call_line}
 <p class=muted small>Prefer the web? <a href="/boats">Browse the verified boats</a>
 Paayal can tell you about.</p>
@@ -194,7 +195,7 @@ Kaayal never confirms prices, availability, or bookings on its own — the opera
     return _public(request,
         "Kaayal — Alappuzha boats by phone",
         body,
-        description="Call Kaayal and talk to Paayal in Malayalam or English: verified Alappuzha boat operators, booking inquiries, and a call back to confirm.",
+        description="Call Kaayal and talk to Paayal in Malayalam, English, or nine other Indian languages: verified boats, booking inquiries, a call back to confirm.",
     )
 
 
@@ -270,16 +271,19 @@ def paayal_page(request: Request):
     call_line = _call_cta(request)
     body = f"""
 <h1>Meet Paayal <span class="ml" lang="ml">(പായൽ)</span></h1>
+<img src="/static/paayal.png" alt="Paayal — Kaayal’s voice assistant"
+     width="150" height="150" style="border-radius:50%;margin:.25rem 0 1rem;
+     border:2px solid var(--line)">
 <p style="font-size:1.15rem;max-width:34rem">
   Paayal is Kaayal’s voice assistant — a <b>Malayalam-first</b> voice on the other
-  end of the Kaayal phone line. She also speaks English. You talk, she answers;
-  there is nothing to install and nothing to type.</p>
+  end of the Kaayal phone line. She also speaks English and nine other Indian
+  languages. You talk, she answers; there is nothing to install and nothing to type.</p>
 {call_line}
 
 <h2>What Paayal does</h2>
 <ul style="padding-left:1.25rem">
   <li style="margin-bottom:.5rem">Answers questions about boat trips out of Alappuzha,
-      in Malayalam or English.</li>
+      in Malayalam, English, or nine other Indian languages.</li>
   <li style="margin-bottom:.5rem">Describes <b>verified</b> boats — capacity, embarkation
       point, amenities, and the operator behind each listing.</li>
   <li style="margin-bottom:.5rem">Takes booking inquiries: your name, number, preferred
@@ -422,7 +426,9 @@ _FAQ = [
      "operator always confirms on the call back. If nothing fits, she can "
      "arrange a callback when something frees up."),
     ("Which languages does Paayal speak?",
-     "Malayalam and English, including a mix of both in the same call."),
+     "Malayalam and English, plus nine more Indian languages — Hindi, Tamil, "
+     "Telugu, Kannada, Marathi, Gujarati, Punjabi, Bengali and Odia — including "
+     "mixing languages in the same call."),
     ("Do I need an app?",
      "No. Just call the Kaayal number and talk."),
     ("Is Kaayal government-approved or operator-verified?",
@@ -461,7 +467,7 @@ def faq_page(request: Request):
 <p class=muted>What Kaayal does, what it doesn’t, and how your call is handled.</p>
 {items}
 <hr class=rule>
-<p class=muted small>Still unsure? Call and ask Paayal directly — in Malayalam or English.</p>
+<p class=muted small>Still unsure? Call and ask Paayal directly — in Malayalam, English, or another Indian language.</p>
 {call_line}
 """
     return _public(

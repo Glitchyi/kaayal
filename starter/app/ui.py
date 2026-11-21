@@ -153,19 +153,22 @@ code {{
 
 def page(title: str, body: str, description: str = "",
          nav: str = "", footer: str = "",
-         canonical_url: str = "", head_extra: str = "") -> str:
+         canonical_url: str = "", head_extra: str = "",
+         og_image: str = "") -> str:
     """Full HTML page shell. Caller must escape dynamic content via esc().
 
     `nav` renders before <main>, `footer` after it — both are trusted HTML
     built by the caller (e.g. site.py's shared chrome). `canonical_url` emits
-    canonical + hreflang (en/x-default) link tags; `head_extra` is trusted
-    HTML appended to <head> (e.g. JSON-LD)."""
+    canonical + hreflang (en/x-default) link tags + og: meta; `head_extra` is
+    trusted HTML appended to <head> (e.g. JSON-LD)."""
     desc = f'<meta name="description" content="{html.escape(description)}">' if description else ""
     canon = ""
     if canonical_url:
         u = html.escape(canonical_url)
         t = html.escape(title)
         d = html.escape(description)
+        img = f'<meta property="og:image" content="{html.escape(og_image)}">' if og_image else ""
+        desc_og = f'<meta property="og:description" content="{d}">' if description else ""
         canon = (
             f'<link rel="canonical" href="{u}">'
             f'<link rel="alternate" hreflang="en" href="{u}">'
@@ -173,7 +176,7 @@ def page(title: str, body: str, description: str = "",
             '<meta property="og:type" content="website">'
             f'<meta property="og:title" content="{t}">'
             f'<meta property="og:url" content="{u}">'
-            + (f'<meta property="og:description" content="{d}">' if description else "")
+            f"{img}{desc_og}"
         )
     return (
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
