@@ -67,7 +67,7 @@
   <ol class="flow">
     <li>A caller dials the Kaayal number. <strong>Sarvam</strong> owns the call:
         speech-to-text, a hosted LLM running the Paayal prompt, text-to-speech.</li>
-    <li>When the caller needs something concrete, Paayal calls one of five
+    <li>When the caller needs something concrete, Paayal calls one of six
         <strong>HTTP tools</strong> on our FastAPI backend over public HTTPS.</li>
     <li>The backend either asks <strong>OpenAI</strong> to draft a short spoken
         answer (<code>voice_reply</code>), or reads/writes the <strong>SQLite
@@ -84,7 +84,7 @@
     <thead><tr><th>Term</th><th>Meaning</th></tr></thead>
     <tbody>
       <tr><td><strong>Paayal</strong></td><td>The Sarvam-hosted voice agent persona. Its prompt checklist is the only control we have over when tools fire.</td></tr>
-      <tr><td><strong>Tool / API tool</strong></td><td>An HTTP endpoint the Sarvam agent invokes mid-call. All five live under <code>/api/…</code> and share one auth header.</td></tr>
+      <tr><td><strong>Tool / API tool</strong></td><td>An HTTP endpoint the Sarvam agent invokes mid-call. All six live under <code>/api/…</code> and share one auth header.</td></tr>
       <tr><td><strong>Tool token</strong></td><td><code>X-Kaayal-Tool-Token</code> — shared secret (<code>SARVAM_TOOL_SHARED_SECRET</code>) gating every tool endpoint; check intentionally disabled for the demo.</td></tr>
       <tr><td><strong>Portal token</strong></td><td>The unguessable URL an operator uses instead of a login. Only its SHA-256 hash is stored; the raw link is shown once.</td></tr>
       <tr><td><strong>Booking request</strong></td><td>A consented caller request (<code>REQ-…</code>) an operator can confirm, decline, or block. Never a confirmed reservation.</td></tr>

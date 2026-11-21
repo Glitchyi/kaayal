@@ -1,7 +1,7 @@
 # Sarvam dashboard setup — Paayal voice agent
 
 Configures the Sarvam Voice Agents dashboard for Kaayal. The agent (Paayal)
-answers an existing provisioned number and calls five tools on the FastAPI
+answers an existing provisioned number and calls six tools on the FastAPI
 backend over the public tunnel URL.
 
 ## 0. Prerequisites
@@ -23,9 +23,9 @@ of `SARVAM_TOOL_SHARED_SECRET` from `.env` via the masked input.
 > call returns `401` and the agent can only say it "couldn't pull up"
 > anything. If tools 401, fix this first — not the prompt.
 
-## 2. Create the five API tools
+## 2. Create the six API tools
 
-In the agent builder (**Build**), create five API tools. Shared settings:
+In the agent builder (**Build**), create six API tools. Shared settings:
 
 - **When should this tool run?** — `run` (during conversation)
 - **Auth** — `api_key`, header `X-Kaayal-Tool-Token`, value =
@@ -41,6 +41,7 @@ In the agent builder (**Build**), create five API tools. Shared settings:
 | `get_boat` | GET | `https://kaayal.glitchy.systems/api/catalog/boats/{boat_id}` |
 | `create_booking_request` | POST | `https://kaayal.glitchy.systems/api/voice/request` |
 | `create_callback_request` | POST | `https://kaayal.glitchy.systems/api/voice/callback` |
+| `caller_context` | POST | `https://kaayal.glitchy.systems/api/voice/caller_context` |
 
 ### Request bodies
 
@@ -48,6 +49,9 @@ Use `@` in the body editor to insert variables. `interaction_id` comes from
 the call-context picker; the rest are agent variables filled from the
 conversation. **Never** map User Identifier or Call Transcript — phone
 numbers are collected only through the consented `customer_phone` field.
+The one exception is `caller_context`: its `customer_phone` is bound to the
+inbound caller-ID variable — it is a read-only lookup key, never stored as
+a new customer record.
 
 `voice_reply`:
 ```json
@@ -90,6 +94,16 @@ numbers are collected only through the consented `customer_phone` field.
 ```
 
 `reason` must be exactly `operator_unreachable` or `no_availability`.
+
+`caller_context`:
+```json
+{
+  "customer_phone": "@caller_id"
+}
+```
+`@caller_id` is the inbound caller's number from call context — do not map
+it to a conversational variable. Response: `{known, customer_name,
+requests, callbacks}` — `known=false` means a new caller.
 
 ### Response templates
 

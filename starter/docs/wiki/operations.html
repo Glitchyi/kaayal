@@ -82,13 +82,15 @@ bash scripts/smoke.sh http://localhost:8000 "$SARVAM_TOOL_SHARED_SECRET"</code><
   <ol class="flow">
     <li>Confirm the already-provisioned number under <strong>Deploy → Phone
         Numbers</strong>. Do not rent a new one.</li>
-    <li>Create five API tools (<code>voice_reply</code>, <code>list_boats</code>,
+    <li>Create six API tools (<code>voice_reply</code>, <code>list_boats</code>,
         <code>get_boat</code>, <code>create_booking_request</code>,
-        <code>create_callback_request</code>) — all <code>api_key</code> auth with
-        header <code>X-Kaayal-Tool-Token</code>, 10–15s max wait, an honest
-        failure line.</li>
+        <code>create_callback_request</code>, <code>caller_context</code>) — all
+        <code>api_key</code> auth with header <code>X-Kaayal-Tool-Token</code>,
+        10–15s max wait, an honest failure line. Bind
+        <code>caller_context.customer_phone</code> to the inbound caller-ID
+        variable, not the conversation.</li>
     <li>Paste the Paayal checklist prompt into the agent instructions (it is the
-        only lever over when tools fire) and enable all five tools.</li>
+        only lever over when tools fire) and enable all six tools.</li>
     <li>Initial language Malayalam (<code>ml-IN</code>), Malayalam-capable voice.</li>
     <li><strong>Deploy → Inbounds → Create Inbound</strong>: attach agent +
         number, widen calling hours to 00:00–23:59 for testing.</li>

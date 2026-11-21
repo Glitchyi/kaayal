@@ -31,7 +31,7 @@
   <ul class="ext">
     <li><a href="#big-picture">Big picture</a></li>
     <li><a href="#components">Components</a></li>
-    <li><a href="#tools">The five tools</a></li>
+    <li><a href="#tools">The six tools</a></li>
     <li><a href="#flows">Key flows</a></li>
     <li><a href="#data">Data model</a></li>
     <li><a href="#security">Security &amp; privacy</a></li>
@@ -51,7 +51,7 @@
   <figure class="diagram">
     <svg viewBox="0 0 720 468" role="img" aria-labelledby="arch-title arch-desc" font-family="Satoshi,'Noto Sans Malayalam',sans-serif">
       <title id="arch-title">Kaayal system diagram</title>
-      <desc id="arch-desc">A caller phones the Sarvam-hosted Paayal agent, which calls five HTTPS tools on the Kaayal FastAPI service. The service reads and writes SQLite and calls OpenAI only for the voice_reply tool. Browsers reach site, portal and admin pages; a WhatsApp sidecar posts to an ops endpoint; a callback engine inside the service drives simulated outbound calls.</desc>
+      <desc id="arch-desc">A caller phones the Sarvam-hosted Paayal agent, which calls six HTTPS tools on the Kaayal FastAPI service. The service reads and writes SQLite and calls OpenAI only for the voice_reply tool. Browsers reach site, portal and admin pages; a WhatsApp sidecar posts to an ops endpoint; a callback engine inside the service drives simulated outbound calls.</desc>
       <defs>
         <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
           <path d="M0,0 L10,5 L0,10 z" fill="#5E7A74"/>
@@ -114,7 +114,7 @@
       <text x="205" y="60" text-anchor="middle" font-size="9.5" fill="#5E7A74">PSTN call</text>
 
       <line x1="370" y1="108" x2="370" y2="156" stroke="#5E7A74" stroke-width="1.2" marker-start="url(#arr)" marker-end="url(#arr)"/>
-      <text x="382" y="128" font-size="9.5" fill="#5E7A74">5 API tools · HTTPS</text>
+      <text x="382" y="128" font-size="9.5" fill="#5E7A74">6 API tools · HTTPS</text>
       <text x="382" y="142" font-size="9.5" fill="#5E7A74">cloudflared tunnel → kaayal.glitchy.systems</text>
 
       <line x1="166" y1="241" x2="244" y2="255" stroke="#5E7A74" stroke-width="1.2" marker-end="url(#arr)"/>
@@ -166,8 +166,8 @@
     </tbody>
   </table>
 
-  <h2 id="tools">The five tools Paayal can call</h2>
-  <p>All five sit behind the same auth dependency — header
+  <h2 id="tools">The six tools Paayal can call</h2>
+  <p>All six sit behind the same auth dependency — header
   <code>X-Kaayal-Tool-Token</code> compared with <code>SARVAM_TOOL_SHARED_SECRET</code>
   via <code>hmac.compare_digest</code>. Wrong or missing → <code>401</code>;
   secret unset → <code>503 service_not_configured</code>.
@@ -191,6 +191,9 @@
       <tr><td><code>create_callback_request</code></td><td><code>POST /api/voice/callback</code></td>
         <td>SQLite — inserts/updates a <code>CB-…</code> row</td>
         <td><code>{…, status, message}</code>; statuses <code>queued · opted_out · rejected</code>. <code>consent_given=false</code> is the opt-out path</td></tr>
+      <tr><td><code>caller_context</code></td><td><code>POST /api/voice/caller_context</code></td>
+        <td>SQLite — read-only, matched on the caller ID's last 10 digits</td>
+        <td><code>{known, customer_name, requests[], callbacks[]}</code> — lets Paayal greet returning callers by name and cite their REQ-/CB- ids. Never returns full phone numbers</td></tr>
     </tbody>
   </table>
   <div class="card plain">
