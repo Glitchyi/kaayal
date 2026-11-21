@@ -106,7 +106,16 @@ function start(client) {
   });
 }
 
-create({ sessionId: "kaayal-demo", multiDevice: true, headless: true, qrTimeout: 0, authTimeout: 0 })
+create({
+  sessionId: "kaayal-demo",
+  multiDevice: true,
+  headless: true,
+  qrTimeout: 0,
+  authTimeout: 0,
+  sessionDataPath: env.WA_SESSION_PATH || "./sessions",
+  executablePath: env.WA_CHROME_PATH || undefined,
+  chromiumArgs: ["--no-sandbox", "--disable-setuid-sandbox"],
+})
   .then(start)
   .catch((err) => {
     console.error("open-wa failed to start:", err);

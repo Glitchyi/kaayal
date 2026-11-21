@@ -1,0 +1,50 @@
+# Kaayal prototype stack — app + WhatsApp demo bot (+ optional tunnel).
+#
+#   cp starter/.env.example starter/.env   # fill in secrets first
+#   docker compose up -d --build
+#   docker compose logs -f wa-bot          # QR appears here on first run
+#
+# Optional public ingress (skip if you run cloudflared on the host):
+#   TUNNEL_TOKEN=<from CF dashboard> docker compose --profile tunnel up -d
+
+services:
+  app:
+    build: ./starter
+    env_file: ./starter/.env
+    environment:
+      DATABASE_URL: sqlite:////data/kaayal.db
+    volumes:
+      - kaayal-data:/data
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  wa-bot:
+    build: ./starter/wa-bot
+    env_file: ./starter/.env
+    environment:
+      KAAYAL_API_BASE: http://app:8000
+      WA_SESSION_PATH: /session
+      WA_CHROME_PATH: /usr/bin/chromium
+    volumes:
+      - wa-session:/session
+    depends_on:
+      - app
+    restart: unless-stopped
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN:?set TUNNEL_TOKEN}
+    profiles: ["tunnel"]
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  kaayal-data:
+  wa-session:

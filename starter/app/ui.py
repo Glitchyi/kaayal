@@ -17,8 +17,19 @@ INK = "#17302E"
 
 # Satoshi (Fontshare) for UI text; Fraunces for editorial display;
 # Noto Sans Malayalam for Malayalam script.
+_FAVICON = (
+    '<link rel="icon" href="data:image/svg+xml,%3Csvg'
+    " xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E"
+    "%3Crect width='32' height='32' rx='8' fill='%23123F3C'/%3E"
+    "%3Cpath d='M5 17c4-3 8-3 12 0s8 3 10 0' stroke='%23F7F5EE'"
+    " fill='none' stroke-width='2' stroke-linecap='round'/%3E"
+    "%3Cpath d='M5 23c4-3 8-3 12 0s8 3 10 0' stroke='%23267A73'"
+    " fill='none' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E\">"
+)
+
 _FONT_LINKS = (
     '<link rel="preconnect" href="https://api.fontshare.com">'
+    '<link rel="preconnect" href="https://cdn.fontshare.com" crossorigin>'
     '<link rel="preconnect" href="https://fonts.googleapis.com">'
     '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
     '<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap" rel="stylesheet">'
@@ -33,7 +44,7 @@ CSS = f"""
 :root {{
   --lagoon: {LAGOON}; --teal: {TEAL}; --ivory: {IVORY};
   --mist: {MIST}; --sand: {SAND}; --ink: {INK};
-  --line: color-mix(in srgb, var(--lagoon) 18%, transparent);
+  --line: #D8DED6; --line: color-mix(in srgb, var(--lagoon) 18%, transparent);
 }}
 * {{ box-sizing: border-box; }}
 html {{ -webkit-tap-highlight-color: transparent; }}
@@ -76,11 +87,11 @@ form.inline {{ display: inline; }}
 label {{ display: block; font-size: .85rem; font-weight: 500; color: var(--lagoon); margin: .9rem 0 .25rem; }}
 input, select {{
   font: inherit; font-size: .95rem; color: var(--ink);
-  background: #FDFCF9; border: 1px solid var(--mist); border-radius: .375rem;
+  background: #FDFCF9; border: 1px solid #9DB3AC; border-radius: .375rem;
   padding: .55rem .7rem; width: 100%; max-width: 26rem;
   touch-action: manipulation;
 }}
-input::placeholder {{ color: #9DB3AC; }}
+input::placeholder {{ color: #6E857E; }}
 button, .btn {{
   font: inherit; font-weight: 500; font-size: .95rem; cursor: pointer;
   background: var(--teal); color: var(--ivory);
@@ -99,8 +110,9 @@ button.danger:hover {{ background: #F3E3E1; color: #7A2E2E; border-color: #7A2E2
   border-radius: .25rem; padding: 1rem 1.25rem; margin: 1rem 0;
   background: #FDFCF9;
 }}
-.card h3 {{ margin: 0 0 .25rem; font-family: {DISPLAY_FONT}; font-size: 1.2rem; color: var(--lagoon); }}
-.muted {{ color: #5E7A74; }}
+.card h2, .card h3 {{ margin: 0 0 .25rem; font-family: {DISPLAY_FONT}; font-size: 1.2rem; color: var(--lagoon); }}
+.faq-q {{ font-family: {BODY_FONT}; font-size: 1.05rem; font-weight: 500; margin: 1.75rem 0 .35rem; }}
+.muted {{ color: #4A6B66; }}
 .small {{ font-size: .85rem; }}
 .rule {{ border: 0; border-top: 1px solid var(--line); margin: 2.5rem 0; }}
 .ml {{ font-family: 'Noto Sans Malayalam', {BODY_FONT}; }}
@@ -113,12 +125,12 @@ button.danger:hover {{ background: #F3E3E1; color: #7A2E2E; border-color: #7A2E2
   text-decoration: none; margin-right: auto;
 }}
 .topnav .wordmark:hover {{ color: var(--teal); }}
-.topnav a.navlink {{ color: var(--ink); text-decoration: none; font-size: .95rem; }}
+.topnav a.navlink {{ color: var(--ink); text-decoration: none; font-size: .95rem; padding: .45rem 0; }}
 .topnav a.navlink:hover {{ color: var(--teal); text-decoration: underline; }}
 .topnav .navcall {{ font-size: .85rem; padding: .35rem .8rem; text-decoration: none; }}
 .site-footer {{
   border-top: 1px solid var(--line); margin-top: 3rem; padding-top: 1.1rem;
-  font-size: .85rem; color: #5E7A74;
+  font-size: .95rem; color: #4A6B66;
 }}
 .chip {{
   display: inline-block; padding: .1rem .55rem; border: 1px solid var(--mist);
@@ -152,19 +164,25 @@ def page(title: str, body: str, description: str = "",
     canon = ""
     if canonical_url:
         u = html.escape(canonical_url)
+        t = html.escape(title)
+        d = html.escape(description)
         canon = (
             f'<link rel="canonical" href="{u}">'
             f'<link rel="alternate" hreflang="en" href="{u}">'
             f'<link rel="alternate" hreflang="x-default" href="{u}">'
+            '<meta property="og:type" content="website">'
+            f'<meta property="og:title" content="{t}">'
+            f'<meta property="og:url" content="{u}">'
+            + (f'<meta property="og:description" content="{d}">' if description else "")
         )
     return (
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
         "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
         f'<meta name="theme-color" content="{IVORY}">{desc}{canon}'
-        f"<title>{html.escape(title)}</title>{_FONT_LINKS}{head_extra}"
+        f"<title>{html.escape(title)}</title>{_FAVICON}{_FONT_LINKS}{head_extra}"
         f"<style>{CSS}</style></head><body>"
         '<a class="skip" href="#main">Skip to content</a>'
-        f'{nav}<main id="main">{body}</main>{footer}</body></html>'
+        f'{nav}<main id="main" tabindex="-1">{body}</main>{footer}</body></html>'
     )
 
 
@@ -199,12 +217,3 @@ def status_badge(status: str) -> str:
         "inactive": "bad",
     }.get(status, "wait")
     return f'<span class="badge {cls}">{esc(status)}</span>'
-
-
-def brand_header(tagline: str = "") -> str:
-    tag = f'<p class="muted" style="margin:.25rem 0 0">{esc(tagline)}</p>' if tagline else ""
-    return (
-        '<header style="margin-bottom:2rem">'
-        '<p style="font-family:' + DISPLAY_FONT + ';font-size:1.6rem;color:var(--lagoon);margin:0">'
-        'Kaayal <span class="ml" lang="ml">(കായൽ)</span></p>' + tag + "</header><hr class=rule style='margin:0 0 2rem'>"
-    )

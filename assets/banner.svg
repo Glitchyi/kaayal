@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" role="img" aria-label="Kaayal — Malayalam-first voice tourism for Alappuzha">
+  <rect width="1200" height="320" fill="#F7F5EE"/>
+  <g fill="none" stroke="#267A73" stroke-width="1.2">
+    <path d="M0,262 C150,238 300,282 460,258 S760,232 1200,268" opacity=".32"/>
+    <path d="M0,238 C170,214 320,260 480,236 S780,206 1200,244" opacity=".26"/>
+    <path d="M0,214 C190,190 340,238 500,214 S800,182 1200,220" opacity=".2"/>
+    <path d="M0,190 C210,166 360,216 520,192 S820,160 1200,196" opacity=".14"/>
+    <path d="M0,166 C230,144 380,194 540,170 S840,140 1200,172" opacity=".09"/>
+  </g>
+  <g font-family="Georgia, 'Times New Roman', serif" fill="#123F3C">
+    <text x="80" y="150" font-size="76" font-weight="500" letter-spacing="1">Kaayal <tspan font-size="58">കായൽ</tspan></text>
+    <text x="82" y="205" font-size="26" font-family="'Helvetica Neue', Arial, sans-serif" fill="#267A73" letter-spacing="3">ALAPPUZHA · BY PHONE · മലയാളം + ENGLISH</text>
+  </g>
+  <g transform="translate(1000,86)" fill="none" stroke="#123F3C" stroke-width="3" stroke-linecap="round">
+    <rect x="0" y="0" width="68" height="122" rx="14"/>
+    <line x1="24" y1="10" x2="44" y2="10"/>
+    <path d="M14 62 q10 -14 20 0 t20 0" stroke="#C68E55"/>
+    <path d="M14 78 q10 -14 20 0 t20 0" stroke="#267A73"/>
+    <path d="M14 94 q10 -14 20 0 t20 0" stroke="#123F3C"/>
+  </g>
+</svg>
