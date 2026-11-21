@@ -1,0 +1,13 @@
+{
+  "name": "kaayal-wa-bot",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Kaayal demo WhatsApp onboarding bot (open-wa, unofficial — demo only)",
+  "scripts": {
+    "start": "node bot.mjs"
+  },
+  "dependencies": {
+    "@open-wa/wa-automate": "5.10.0"
+  }
+}

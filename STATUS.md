@@ -14,14 +14,19 @@
 2. `/admin?t=<ADMIN_TOKEN>` → create operator → share portal link → verify their boat
 3. Live calls in Malayalam + English: general Q, boat Q, test request → confirm in portal
 
+## Done since last update
+- Git initialized, 2 commits on `main` (latest `57e8706`)
+- PII 90-day anonymization (`app/pii.py` startup sweep + `scripts/anonymize_pii.py`)
+- Operator token reissue + deactivate/reactivate in /admin
+- Portal wa.me "WhatsApp customer" links on confirmed requests only
+- Landing: `Call +91 7965861153` CTA top + separate `WhatsApp +91 9400354625` operator CTA bottom (KAAYAL_PHONE_NUMBER / KAAYAL_WHATSAPP_NUMBER in .env)
+
 ## Pending — DEVIN (say go)
-4. `git init` + first commit (everything unversioned)
-5. Process supervision: launchd for uvicorn + `sudo cloudflared service install`
-6. Optional: deeper editorial pass on landing page
+4. Process supervision: launchd for uvicorn + `sudo cloudflared service install`
+5. Optional: deeper editorial pass on landing page
 
 ## Deferred (explicit)
-- WhatsApp adapter (openwa) — operator↔customer messaging
-- PII 90-day anonymization; portal token reissue/delete
+- WhatsApp Business API adapter (full automation — needs Meta credentials; deep links done instead)
 - No payments, Aadhaar/eKYC, paid promotion, subscriptions, P2P
 
 ## Key docs

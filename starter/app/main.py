@@ -19,6 +19,7 @@ from app.portal import router as portal_router
 from app.requests_api import router as requests_router
 from app.schemas import VoiceReplyRequest, VoiceReplyResponse
 from app.site import router as site_router
+from app.wa_onboard import router as wa_router
 
 logger = logging.getLogger("kaayal")
 
@@ -95,6 +96,7 @@ def create_app(settings: Settings | None = None, responder=None) -> FastAPI:
 
     app.include_router(catalog_router, dependencies=[Depends(require_tool_auth)])
     app.include_router(requests_router, dependencies=[Depends(require_tool_auth)])
+    app.include_router(wa_router, dependencies=[Depends(require_tool_auth)])
     app.include_router(portal_router)
     app.include_router(admin_router)
     app.include_router(site_router)

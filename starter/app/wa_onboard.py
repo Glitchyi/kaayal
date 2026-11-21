@@ -1,0 +1,91 @@
+"""WhatsApp demo onboarding endpoint (internal, tool-token auth).
+
+Called only by the open-wa demo bot (wa-bot/) — creates an operator (or
+re-issues their link on repeat messages) and returns the one-time portal
+URL to send back over WhatsApp. Demo path; production = Business API.
+"""
+
+import re
+
+from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel, ConfigDict, Field
+from sqlmodel import Session, select
+
+from app.db import Boat, Operator
+from app.portal import hash_token, new_token
+
+router = APIRouter(prefix="/api/ops", tags=["wa-demo"])
+
+_PHONE_RE = re.compile(r"^[+0-9][0-9 ()-]{5,24}$")
+
+
+class WaOnboardIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    phone: str = Field(min_length=6, max_length=25)
+    name: str = Field(min_length=1, max_length=120)
+    boat_name: str | None = Field(default=None, max_length=120)
+    embarkation: str | None = Field(default=None, max_length=120)
+
+
+class WaOnboardOut(BaseModel):
+    operator_id: int
+    portal_url: str
+    boat_id: int | None
+
+
+def _digits(phone: str) -> str:
+    return re.sub(r"\D", "", phone)
+
+
+@router.post("/wa_onboard", response_model=WaOnboardOut)
+def wa_onboard(payload: WaOnboardIn, request: Request):
+    if not _PHONE_RE.match(payload.phone):
+        raise HTTPException(status_code=400, detail="invalid_phone")
+
+    engine = request.app.state.engine
+    base = request.app.state.settings.kaayal_public_base_url.rstrip("/")
+    want_digits = _digits(payload.phone)
+
+    with Session(engine) as session:
+        # Match by normalized digits so "+91 94003 54625" == "919400354625".
+        op = next(
+            (o for o in session.exec(select(Operator)).all() if _digits(o.phone) == want_digits),
+            None,
+        )
+        token = new_token()
+        if op is None:
+            op = Operator(
+                name=payload.name.strip(),
+                phone=f"+{want_digits}",
+                token_hash=hash_token(token),
+            )
+        else:
+            # Repeat DM → re-issue: the old portal link immediately dies.
+            op.token_hash = hash_token(token)
+        session.add(op)
+        session.commit()
+
+        boat_id = None
+        if payload.boat_name:
+            name = payload.boat_name.strip()
+            existing = session.exec(
+                select(Boat).where(Boat.operator_id == op.id, Boat.name == name)
+            ).first()
+            if existing is None:
+                boat = Boat(
+                    operator_id=op.id,
+                    name=name,
+                    embarkation_point=payload.embarkation.strip() if payload.embarkation else None,
+                    source="wa-demo",
+                )
+                session.add(boat)
+                session.commit()
+                boat_id = boat.id
+            else:
+                boat_id = existing.id
+        operator_id = op.id
+
+    return WaOnboardOut(
+        operator_id=operator_id, portal_url=f"{base}/portal/{token}", boat_id=boat_id
+    )
