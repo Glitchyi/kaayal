@@ -98,9 +98,13 @@ button, .btn {{
   border: 1px solid var(--teal); border-radius: .375rem;
   padding: .55rem 1.1rem; touch-action: manipulation;
   min-height: 2.75rem; display: inline-flex; align-items: center;
-  transition: background-color .15s ease, border-color .15s ease;
+  transition: background-color .15s ease, border-color .15s ease, transform .15s ease;
 }}
-button:hover, .btn:hover {{ background: var(--lagoon); border-color: var(--lagoon); color: var(--ivory); }}
+button:hover, .btn:hover {{
+  background: var(--lagoon); border-color: var(--lagoon); color: var(--ivory);
+  transform: translateY(-1px);
+}}
+button:active, .btn:active {{ transform: translateY(0); }}
 button.secondary {{ background: transparent; color: var(--teal); border-color: var(--mist); }}
 button.secondary:hover {{ border-color: var(--teal); color: var(--lagoon); background: transparent; }}
 button.danger {{ background: transparent; color: #7A2E2E; border-color: #D9AFAF; }}
@@ -115,6 +119,10 @@ button.danger:hover {{ background: #F3E3E1; color: #7A2E2E; border-color: #7A2E2
 .muted {{ color: #4A6B66; }}
 .small {{ font-size: .85rem; }}
 .rule {{ border: 0; border-top: 1px solid var(--line); margin: 2.5rem 0; }}
+ol ::marker {{ color: var(--teal); font-family: {DISPLAY_FONT}; }}
+@media (prefers-reduced-motion: reduce) {{
+  * {{ animation: none !important; transition: none !important; }}
+}}
 .ml {{ font-family: 'Noto Sans Malayalam', {BODY_FONT}; }}
 .topnav {{
   display: flex; align-items: baseline; gap: 1.15rem; flex-wrap: wrap;
@@ -148,6 +156,38 @@ code {{
 @media (prefers-reduced-motion: reduce) {{
   *, *::before, *::after {{ transition: none !important; animation: none !important; }}
 }}
+"""
+
+
+# Progressive-enhancement motion (motion.dev, pinned CDN build). If the CDN or
+# the module fails, everything still renders statically — animations only ever
+# run FROM hidden states, never TO them. prefers-reduced-motion skips all of it.
+_MOTION = """
+<script type="module">
+try {
+  const {animate, inView} =
+    await import("https://cdn.jsdelivr.net/npm/motion@12.43.0/+esm");
+  if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    const ease = [.22, .61, .36, 1];
+    const h1 = document.querySelector("main h1");
+    if (h1) animate(h1, {opacity: [0, 1], y: [18, 0]}, {duration: .55, easing: ease});
+    document.querySelectorAll("main .lead, main .call_line").forEach((el, i) =>
+      animate(el, {opacity: [0, 1], y: [14, 0]}, {duration: .55, delay: .12 + i * .1, easing: ease}));
+    inView("main h2, main h3, main .card, main ol li",
+      (el) => animate(el, {opacity: [0, 1], y: [12, 0]}, {duration: .45, easing: ease}),
+      {amount: .25});
+    document.querySelectorAll("svg.contours path").forEach((p, i) => {
+      const len = p.getTotalLength();
+      p.style.strokeDasharray = len;
+      animate(p, {strokeDashoffset: [len, 0]},
+              {duration: 2.0, delay: i * .15, easing: "ease-in-out"});
+      animate(p, {y: [0, i % 2 ? 5 : -5, 0]},
+              {duration: 6 + i * 1.1, delay: i * .4, repeat: Infinity,
+               easing: "ease-in-out"});
+    });
+  }
+} catch (e) { /* decoration only — page is complete without it */ }
+</script>
 """
 
 
@@ -185,7 +225,7 @@ def page(title: str, body: str, description: str = "",
         f"<title>{html.escape(title)}</title>{_FAVICON}{_FONT_LINKS}{head_extra}"
         f"<style>{CSS}</style></head><body>"
         '<a class="skip" href="#main">Skip to content</a>'
-        f'{nav}<main id="main" tabindex="-1">{body}</main>{footer}</body></html>'
+        f'{nav}<main id="main" tabindex="-1">{body}</main>{footer}{_MOTION}</body></html>'
     )
 
 

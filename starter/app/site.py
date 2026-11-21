@@ -19,14 +19,14 @@ from app.ui import esc as _esc, page as _page
 router = APIRouter()
 
 _CONTOURS = """
-<svg aria-hidden="true" viewBox="0 0 720 120" width="100%" height="120"
-     preserveAspectRatio="none" style="display:block;margin:1.5rem 0 0;opacity:.55">
-  <g fill="none" stroke="#267A73" stroke-width="1" opacity=".35">
+<svg class="contours" aria-hidden="true" viewBox="0 0 720 120" width="100%" height="120"
+     preserveAspectRatio="none" style="display:block;margin:1.5rem 0 0;opacity:.9">
+  <g fill="none" stroke="#267A73" stroke-width="1.4">
     <path d="M0,95 C120,75 200,110 340,90 S560,70 720,92"/>
-    <path d="M0,80 C140,60 240,100 360,80 S580,55 720,78" opacity=".7"/>
-    <path d="M0,65 C160,45 280,88 400,66 S600,42 720,64" opacity=".5"/>
-    <path d="M0,50 C180,32 320,76 440,54 S620,30 720,50" opacity=".35"/>
-    <path d="M0,35 C200,20 360,62 480,42 S640,20 720,38" opacity=".22"/>
+    <path d="M0,80 C140,60 240,100 360,80 S580,55 720,78" opacity=".85"/>
+    <path d="M0,65 C160,45 280,88 400,66 S600,42 720,64" opacity=".68"/>
+    <path d="M0,50 C180,32 320,76 440,54 S620,30 720,50" opacity=".52"/>
+    <path d="M0,35 C200,20 360,62 480,42 S640,20 720,38" opacity=".38"/>
   </g>
 </svg>
 """
