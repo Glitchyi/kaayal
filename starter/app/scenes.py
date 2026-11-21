@@ -405,7 +405,36 @@ def scene_canoe() -> str:
     )
 
 
+# --- 4. A lone kettuvallam for the dark closing band ----------------------------
+
+def scene_houseboat_mark() -> str:
+    """The hero's houseboat on its own, sized for the lagoon-coloured closing
+    band: sand thatch on dark water, a few light waterlines, a faint
+    reflection, and the same slow bob. No shore, no parallax layers."""
+    rng = random.Random(53)
+    pid = "cl"
+    lines = []
+    for i in range(9):
+        y = 350 + i * i * 1.6
+        for _ in range(rng.randint(1, 3)):
+            cx = rng.uniform(300, 860)
+            ln = rng.uniform(24, 70) * (1 + i * .12)
+            lines.append(f"M{_f(cx - ln / 2)},{_f(y)}h{_f(ln)}")
+    water = (f'<g class="drift"><path d="{"".join(lines)}" stroke="{MIST}" stroke-width="1.1" '
+             f'stroke-linecap="round" opacity=".35"/></g>')
+    return (
+        '<svg class="scene scene-mini" aria-hidden="true" focusable="false" '
+        'viewBox="270 186 620 226" width="100%" data-scene="houseboat-mark">'
+        + _defs(pid, 338, 1200, 420)
+        + f'<path d="M270,340 L890,340" stroke="{MIST}" stroke-width="1" opacity=".3"/>'
+        + _houseboat(pid)
+        + _reflection(pid, pid + "-hb", 339, 120, .18)
+        + water + "</svg>"
+    )
+
+
 # Rendered once at import — deterministic, so safe to cache as module constants.
 HOUSEBOAT = scene_houseboat()
 NET = scene_net()
 CANOE = scene_canoe()
+HOUSEBOAT_MARK = scene_houseboat_mark()

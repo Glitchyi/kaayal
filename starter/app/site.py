@@ -447,10 +447,13 @@ Leave an inquiry; the operator calls you back.</p>
 {call_line}
 </div>
 <div class="closing-ops">
+{scenes.HOUSEBOAT_MARK}
+<div class="ops-copy">
 <h3>For operators</h3>
 <p>Run a boat out of Alappuzha? Message us on WhatsApp. We review your listing, then
 callers can hear about your boats and send you inquiries to confirm.</p>
 {operator_cta}
+</div>
 </div>
 </div>
 </section>

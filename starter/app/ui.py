@@ -270,6 +270,19 @@ td.actions form.inline button {{ min-height: 2.5rem; padding: .35rem .8rem; font
   .topnav a.navlink {{ padding: .5rem 0; }}
   section[id], h2[id] {{ scroll-margin-top: 1rem; }}
 }}
+/* Public site on phones: just the wordmark up top. The wrapped row of
+   section links read as clutter; the call buttons carry the main action. */
+@media (max-width: 640px) {{
+  body.site .topnav a.navlink {{ display: none; }}
+  body.site .topnav {{ padding: 1rem 0 .85rem; }}
+  /* The wordmark becomes the header: set to fill the column edge to edge
+     (inside the page gutter), Latin left, Malayalam right. */
+  body.site .topnav .wordmark {{
+    display: flex; justify-content: space-between; align-items: baseline;
+    flex-basis: 100%; margin: 0; font-size: 13vw; line-height: 1; letter-spacing: -.02em;
+  }}
+  body.site .topnav .wordmark .ml {{ font-size: .82em; }}
+}}
 .fab-call {{
   position: fixed; right: 1.25rem; z-index: 6;
   bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
@@ -460,7 +473,9 @@ body.site .privacy-page h1 {{ font-size: clamp(2.4rem, 4.6vw, 3.75rem); line-hei
 .closing {{ display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 4fr); gap: 2.5rem clamp(2.5rem, 6vw, 6rem); align-items: end; }}
 body.site #closing h2 {{ font-size: clamp(2.75rem, 6.4vw, 5.25rem); line-height: 1; letter-spacing: -.03em; margin-bottom: 1.25rem; }}
 body.site #closing .lead {{ color: var(--mist); }}
-.closing-ops {{ border-top: 1px solid color-mix(in srgb, var(--ivory) 30%, transparent); padding-top: 1.25rem; }}
+.ops-copy {{ border-top: 1px solid color-mix(in srgb, var(--ivory) 30%, transparent); padding-top: 1.25rem; }}
+/* A lone houseboat floats above the operators block on the dark band. */
+.closing-ops svg.scene-mini {{ display: block; width: 100%; max-width: 26rem; height: auto; min-height: 0; margin: 0 0 1rem; }}
 .closing-ops h3 {{ margin-top: 0 !important; }}
 .closing-ops p {{ color: var(--mist); }}
 /* Secondary to the caller CTA: an outline, so the page keeps one loud button. */
