@@ -31,6 +31,7 @@
 - No payments, Aadhaar/eKYC, paid promotion, subscriptions, P2P
 
 ## Key docs
+- HTML wiki (start here): `starter/docs/wiki/index.html` — index at `starter/docs/README.md`
 - Sarvam portal steps: `starter/docs/sarvam-dashboard-setup.md`
 - Sarvam vs OpenAI roles: `starter/docs/how-sarvam-and-openai-fit.md`
 - Operator onboarding: `starter/docs/operator-onboarding.md`

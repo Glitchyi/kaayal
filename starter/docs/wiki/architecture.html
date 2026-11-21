@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#F7F5EE">
+<meta name="description" content="Kaayal architecture — how Sarvam, FastAPI, OpenAI and SQLite fit together.">
+<title>Kaayal wiki — Architecture</title>
+<link rel="preconnect" href="https://api.fontshare.com">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Noto+Sans+Malayalam:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="wiki.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="masthead">
+  <a class="wordmark" href="index.html">Kaayal <span class="ml" lang="ml">കായൽ</span></a>
+  <span class="wiki-tag">wiki</span>
+</header>
+<div class="layout">
+<nav class="sidenav" aria-label="Wiki pages">
+  <p class="navhead">Pages</p>
+  <ul>
+    <li><a href="index.html">Home</a></li>
+    <li><a href="architecture.html" aria-current="page">Architecture</a></li>
+    <li><a href="operations.html">Operations</a></li>
+  </ul>
+  <p class="navhead">On this page</p>
+  <ul class="ext">
+    <li><a href="#big-picture">Big picture</a></li>
+    <li><a href="#components">Components</a></li>
+    <li><a href="#tools">The five tools</a></li>
+    <li><a href="#flows">Key flows</a></li>
+    <li><a href="#data">Data model</a></li>
+    <li><a href="#security">Security &amp; privacy</a></li>
+    <li><a href="#deployment">Deployment</a></li>
+  </ul>
+</nav>
+<main id="main">
+  <p class="crumb"><a href="index.html">Home</a> / Architecture</p>
+  <h1>Architecture</h1>
+  <p class="lede">
+    Three pieces do the work: <strong>Sarvam</strong> owns the phone call,
+    a small <strong>FastAPI service</strong> owns the data and the rules, and
+    <strong>OpenAI</strong> writes short spoken answers — nothing more.
+  </p>
+
+  <h2 id="big-picture">Big picture</h2>
+  <figure class="diagram">
+    <svg viewBox="0 0 720 468" role="img" aria-labelledby="arch-title arch-desc" font-family="Satoshi,'Noto Sans Malayalam',sans-serif">
+      <title id="arch-title">Kaayal system diagram</title>
+      <desc id="arch-desc">A caller phones the Sarvam-hosted Paayal agent, which calls five HTTPS tools on the Kaayal FastAPI service. The service reads and writes SQLite and calls OpenAI only for the voice_reply tool. Browsers reach site, portal and admin pages; a WhatsApp sidecar posts to an ops endpoint; a callback engine inside the service drives simulated outbound calls.</desc>
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#5E7A74"/>
+        </marker>
+        <marker id="arr-sim" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#C68E55"/>
+        </marker>
+      </defs>
+
+      <!-- actors -->
+      <rect x="16" y="44" width="150" height="48" rx="3" fill="#FDFCF9" stroke="#D9E6DE"/>
+      <text x="91" y="64" text-anchor="middle" font-size="12" font-weight="500" fill="#123F3C">Caller</text>
+      <text x="91" y="80" text-anchor="middle" font-size="10" fill="#5E7A74">any phone, ml-IN / en</text>
+
+      <rect x="16" y="216" width="150" height="50" rx="3" fill="#FDFCF9" stroke="#D9E6DE"/>
+      <text x="91" y="236" text-anchor="middle" font-size="12" font-weight="500" fill="#123F3C">Tourist — browser</text>
+      <text x="91" y="252" text-anchor="middle" font-size="10" fill="#5E7A74">site · /inquire · /join</text>
+
+      <rect x="16" y="278" width="150" height="50" rx="3" fill="#FDFCF9" stroke="#D9E6DE"/>
+      <text x="91" y="298" text-anchor="middle" font-size="12" font-weight="500" fill="#123F3C">Operator &amp; owner</text>
+      <text x="91" y="314" text-anchor="middle" font-size="10" fill="#5E7A74">/portal/&lt;token&gt; · /admin</text>
+
+      <rect x="16" y="340" width="150" height="50" rx="3" fill="#FDFCF9" stroke="#D9E6DE"/>
+      <text x="91" y="360" text-anchor="middle" font-size="12" font-weight="500" fill="#123F3C">wa-bot sidecar</text>
+      <text x="91" y="376" text-anchor="middle" font-size="10" fill="#5E7A74">open-wa · operator DMs</text>
+
+      <!-- Sarvam -->
+      <rect x="250" y="26" width="240" height="82" rx="3" fill="#FDFCF9" stroke="#D9E6DE"/>
+      <text x="370" y="48" text-anchor="middle" font-size="12.5" font-weight="500" fill="#123F3C">Sarvam cloud — Paayal</text>
+      <text x="370" y="65" text-anchor="middle" font-size="10.5" fill="#5E7A74">hosted voice agent on the Kaayal number</text>
+      <text x="370" y="82" text-anchor="middle" font-size="10.5" fill="#5E7A74">STT → hosted LLM (checklist prompt) → TTS</text>
+
+      <!-- service -->
+      <rect x="250" y="162" width="250" height="246" rx="3" fill="#FDFCF9" stroke="#123F3C" stroke-opacity=".35"/>
+      <text x="375" y="186" text-anchor="middle" font-size="12.5" font-weight="500" fill="#123F3C">Kaayal service</text>
+      <text x="375" y="202" text-anchor="middle" font-size="10.5" fill="#5E7A74">FastAPI · uvicorn · single process</text>
+      <line x1="266" y1="216" x2="484" y2="216" stroke="#D9E6DE"/>
+      <text x="375" y="236" text-anchor="middle" font-size="10.5" font-weight="500" fill="#17302E">Tool endpoints</text>
+      <text x="375" y="252" text-anchor="middle" font-size="9.5" fill="#5E7A74">/api/voice · /api/catalog · /api/ops</text>
+      <line x1="266" y1="266" x2="484" y2="266" stroke="#D9E6DE"/>
+      <text x="375" y="286" text-anchor="middle" font-size="10.5" font-weight="500" fill="#17302E">Web surfaces</text>
+      <text x="375" y="302" text-anchor="middle" font-size="9.5" fill="#5E7A74">site pages · operator portal · owner admin</text>
+      <line x1="266" y1="316" x2="484" y2="316" stroke="#D9E6DE"/>
+      <text x="375" y="336" text-anchor="middle" font-size="10.5" font-weight="500" fill="#17302E">SQLite — kaayal.db</text>
+      <text x="375" y="352" text-anchor="middle" font-size="9.5" fill="#5E7A74">operators · boats · requests · callbacks</text>
+      <rect x="266" y="362" width="218" height="34" rx="3" fill="none" stroke="#C68E55" stroke-dasharray="4 3"/>
+      <text x="375" y="383" text-anchor="middle" font-size="10.5" fill="#6B4A26">callback engine — async tick, 30s</text>
+
+      <!-- upstream -->
+      <rect x="572" y="186" width="132" height="52" rx="3" fill="#FDFCF9" stroke="#D9E6DE"/>
+      <text x="638" y="207" text-anchor="middle" font-size="12" font-weight="500" fill="#123F3C">OpenAI</text>
+      <text x="638" y="223" text-anchor="middle" font-size="10" fill="#5E7A74">Responses API</text>
+
+      <rect x="572" y="340" width="132" height="56" rx="3" fill="none" stroke="#C68E55" stroke-dasharray="4 3"/>
+      <text x="638" y="361" text-anchor="middle" font-size="11" font-weight="500" fill="#6B4A26">Outbound calls</text>
+      <text x="638" y="377" text-anchor="middle" font-size="9.5" fill="#6B4A26">simulator · Sarvam stub</text>
+
+      <!-- edges -->
+      <line x1="166" y1="68" x2="244" y2="68" stroke="#5E7A74" stroke-width="1.2" marker-end="url(#arr)"/>
+      <text x="205" y="60" text-anchor="middle" font-size="9.5" fill="#5E7A74">PSTN call</text>
+
+      <line x1="370" y1="108" x2="370" y2="156" stroke="#5E7A74" stroke-width="1.2" marker-start="url(#arr)" marker-end="url(#arr)"/>
+      <text x="382" y="128" font-size="9.5" fill="#5E7A74">5 API tools · HTTPS</text>
+      <text x="382" y="142" font-size="9.5" fill="#5E7A74">cloudflared tunnel → kaayal.glitchy.systems</text>
+
+      <line x1="166" y1="241" x2="244" y2="255" stroke="#5E7A74" stroke-width="1.2" marker-end="url(#arr)"/>
+      <line x1="166" y1="303" x2="244" y2="300" stroke="#5E7A74" stroke-width="1.2" marker-end="url(#arr)"/>
+      <line x1="166" y1="365" x2="244" y2="352" stroke="#5E7A74" stroke-width="1.2" marker-end="url(#arr)"/>
+
+      <line x1="500" y1="212" x2="566" y2="212" stroke="#5E7A74" stroke-width="1.2" marker-end="url(#arr)"/>
+      <text x="533" y="200" text-anchor="middle" font-size="9.5" fill="#5E7A74">voice_reply</text>
+      <text x="533" y="228" text-anchor="middle" font-size="9.5" fill="#5E7A74">only</text>
+
+      <line x1="500" y1="379" x2="566" y2="372" stroke="#C68E55" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#arr-sim)"/>
+
+      <text x="16" y="448" font-size="9.5" fill="#6B4A26">— — sand/dashed = simulated or stubbed, not live</text>
+    </svg>
+    <figcaption>
+      Everything except the sand-dashed parts is live. Outbound callbacks run through
+      the simulator until real Sarvam outbound calls are approved and wired.
+    </figcaption>
+  </figure>
+
+  <h2 id="components">Components</h2>
+  <table>
+    <thead><tr><th>Piece</th><th>Lives in</th><th>Job</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Paayal</strong> (Sarvam voice agent)</td><td>Sarvam cloud</td>
+        <td>Answers the provisioned number, runs STT → hosted LLM → TTS, follows a checklist
+        prompt that decides which tool to call. We do not choose its model — the prompt is
+        our only lever over tool usage.</td></tr>
+      <tr><td><strong>FastAPI backend</strong></td><td><code>starter/app/main.py</code> + routers</td>
+        <td>Authenticates tool calls, enforces consent and validation, serves the public
+        site, operator portal and owner admin, runs the callback engine on a lifespan tick.</td></tr>
+      <tr><td><strong>OpenAI adapter</strong></td><td><code>app/openai_adapter.py</code></td>
+        <td>Used only by <code>voice_reply</code>. Hard system prompt: ≤60 words, caller's
+        language, never invent prices/bookings. Reply text is whitespace-sanitized and
+        char-capped before TTS ever sees it.</td></tr>
+      <tr><td><strong>SQLite catalog</strong></td><td><code>kaayal.db</code> via <code>app/db.py</code></td>
+        <td>Operators, boats, booking requests, callbacks, callback attempts. Naive
+        column-adder keeps the live DB migratable without Alembic.</td></tr>
+      <tr><td><strong>Callback engine</strong></td><td><code>app/callbacks.py</code></td>
+        <td>Async tick every 30s inside the app process. Attempts due consented callbacks
+        inside the 09:00–18:00 IST window through a pluggable outbound provider.</td></tr>
+      <tr><td><strong>wa-bot sidecar</strong></td><td><code>starter/wa-bot/</code> (Node, open-wa)</td>
+        <td>Demo-only WhatsApp onboarding bot. Replies to operator DMs and posts to
+        <code>/api/ops/wa_onboard</code>. Unofficial API — can be banned; Business API is deferred.</td></tr>
+      <tr><td><strong>Public edge</strong></td><td>cloudflared named tunnel</td>
+        <td><code>kaayal.glitchy.systems</code> → <code>localhost:8000</code>. Both the Sarvam
+        tools and the human-facing pages share this one hostname.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="tools">The five tools Paayal can call</h2>
+  <p>All five sit behind the same auth dependency — header
+  <code>X-Kaayal-Tool-Token</code> compared with <code>SARVAM_TOOL_SHARED_SECRET</code>
+  via <code>hmac.compare_digest</code>. Wrong or missing → <code>401</code>;
+  secret unset → <code>503 service_not_configured</code>.</p>
+  <table>
+    <thead><tr><th>Sarvam tool</th><th>Endpoint</th><th>Reads / writes</th><th>Returns</th></tr></thead>
+    <tbody>
+      <tr><td><code>voice_reply</code></td><td><code>POST /api/voice/reply</code></td>
+        <td>OpenAI (nothing else)</td>
+        <td><code>{reply_text, trace_id}</code> — spoken verbatim</td></tr>
+      <tr><td><code>list_boats</code></td><td><code>GET /api/catalog/boats?q=…</code></td>
+        <td>SQLite — verified boats of approved, active operators only</td>
+        <td>JSON array: name, operator, capacity, embarkation, <code>price_display</code>, amenities, <code>available</code>, <code>operator_reachable</code></td></tr>
+      <tr><td><code>get_boat</code></td><td><code>GET /api/catalog/boats/{id}</code></td>
+        <td>SQLite — one boat</td><td>Same shape, single object</td></tr>
+      <tr><td><code>create_booking_request</code></td><td><code>POST /api/voice/request</code></td>
+        <td>SQLite — inserts a <code>REQ-…</code> row</td>
+        <td><code>{request_id, status, message}</code>; statuses <code>pending · rejected · unavailable · unreachable</code> — the last two route the caller to a callback offer</td></tr>
+      <tr><td><code>create_callback_request</code></td><td><code>POST /api/voice/callback</code></td>
+        <td>SQLite — inserts/updates a <code>CB-…</code> row</td>
+        <td><code>{…, status, message}</code>; statuses <code>queued · opted_out · rejected</code>. <code>consent_given=false</code> is the opt-out path</td></tr>
+    </tbody>
+  </table>
+  <div class="card plain">
+    <h3>Why catalog calls never touch OpenAI</h3>
+    <p class="small" style="margin:.3rem 0 0">
+      Listings, prices and requests must come from verified rows — not a language
+      model's memory. OpenAI only ever writes <em>opinion text</em> for general
+      questions; structured answers always come from the database. That's what
+      lets Paayal speak real inventory without ever inventing it.</p>
+  </div>
+
+  <h2 id="flows">Key flows</h2>
+
+  <h3>A general question → <code>voice_reply</code></h3>
+  <ol class="flow">
+    <li>Caller asks something open-ended ("what is a shikara?"). Paayal's hosted
+        LLM classifies it and POSTs <code>{utterance, interaction_id, language}</code>.</li>
+    <li>Backend checks the tool token, then a fixed-window rate limit
+        (<code>rate_limit_per_minute</code>, default 60) — trips return <code>429</code>.</li>
+    <li>OpenAI answers under the Kaayal system prompt with a 12s timeout and a
+        small output-token cap. Failure → honest <code>502 upstream_unavailable</code>,
+        never a made-up answer.</li>
+    <li>Reply is whitespace-collapsed, capped at 600 chars, returned with a
+        <code>trace_id</code>. Paayal speaks it.</li>
+    <li>Log line carries only <code>trace_id</code>, <code>interaction_id</code>,
+        language and latency — never the utterance or the caller's number.</li>
+  </ol>
+
+  <h3>A booking request → operator confirmation</h3>
+  <ol class="flow">
+    <li>Paayal collects boat, name, callback number, date, group size — then asks
+        for <strong>explicit consent</strong> before anything is stored.</li>
+    <li><code>POST /api/voice/request</code> validates and writes a
+        <code>REQ-…</code> row (<code>status=pending</code>, <code>source=voice</code>).
+        Boat-less requests go to the owner triage queue.</li>
+    <li>The row appears on the operator's portal and in <code>/admin</code>.</li>
+    <li>Operator taps <strong>Confirm</strong> — only then is the customer's
+        name + number revealed — and calls or WhatsApps them directly
+        (<code>wa.me</code> deep links on confirmed requests).</li>
+    <li>Kaayal never confirms a booking itself; the spoken message only ever says
+        the operator will call.</li>
+  </ol>
+
+  <h3>The callback engine</h3>
+  <p>When a boat is <code>unavailable</code> or an operator <code>unreachable</code>,
+  Paayal offers "I can call you back when that changes." A yes writes a
+  <code>CB-…</code> row; a no writes nothing.</p>
+  <table>
+    <thead><tr><th>Mechanism</th><th>Behavior</th></tr></thead>
+    <tbody>
+      <tr><td>Triggers</td><td><code>fire_boat_available</code> / <code>fire_operator_reachable</code> — fired by portal toggles; requeue matching rows and bump <code>trigger_seq</code>.</td></tr>
+      <tr><td>Tick</td><td>Lifespan task wakes every <code>callback_tick_seconds</code> (30s), calls <code>process_due_callbacks</code>. Admin can also force a run.</td></tr>
+      <tr><td>Window</td><td>Attempts only 09:00–18:00 IST; due rows outside the window are rescheduled to the next window start. <code>DEMO_IGNORE_CALL_WINDOW</code> bypasses for demos.</td></tr>
+      <tr><td>Retries</td><td>Max 2 attempts per trigger, ≥61 min apart; <code>no_answer</code> is terminal for that trigger.</td></tr>
+      <tr><td>Expiry</td><td>7 days, or before the travel date when one parses.</td></tr>
+      <tr><td>Outcome</td><td><code>interested</code> auto-converts to a booking inquiry (<code>source=callback</code>) → same portal flow. <code>not_interested</code> opts the number out.</td></tr>
+      <tr><td>Opt-out</td><td>"Don't call me" → <code>consent_given=false</code> cancels every active callback for that number; admin can cancel too.</td></tr>
+      <tr><td>Provider</td><td><code>SimulatedProvider</code> today — deterministic outcome, script transcript, no dialing. <code>SarvamOutboundProvider</code> exists but raises until approved and configured.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Web surfaces, same app</h3>
+  <table>
+    <thead><tr><th>Surface</th><th>Path</th><th>Auth</th></tr></thead>
+    <tbody>
+      <tr><td>Public site</td><td><code>/</code> <code>/boats</code> <code>/paayal</code> <code>/explore</code> <code>/inquire</code> <code>/join</code></td>
+        <td>None — inquiry form writes the same <code>REQ-…</code> rows (<code>source=web</code>); <code>/join</code> is operator self-signup pending admin approval</td></tr>
+      <tr><td>Operator portal</td><td><code>/portal/{token}</code></td>
+        <td>Unguessable URL; DB stores only the SHA-256 hash. Boats add/delete/availability, reachable toggle, request confirm/decline/block</td></tr>
+      <tr><td>Owner admin</td><td><code>/admin?t=…</code></td>
+        <td><code>ADMIN_TOKEN</code> query param. Operators create/reissue/approve/deactivate, boat verify, callback cancel/run, demo seed/clear</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="data">Data model</h2>
+  <p>Five SQLModel tables in <code>kaayal.db</code>. Provenance travels on every
+  row via <code>source</code>; customer PII lives only in request/callback rows
+  and is anonymized after 90 days.</p>
+  <table>
+    <thead><tr><th>Table</th><th>Key fields</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td><code>operator</code></td><td>name, phone, <code>token_hash</code>, active, reachable, <code>approved_at</code>, source</td>
+        <td><code>approved_at NULL</code> = self-signup awaiting admin approval. Reachable flips fire callbacks.</td></tr>
+      <tr><td><code>boat</code></td><td>operator_id →, name, capacity, embarkation_point, photo_urls, amenities, <code>price_display</code>, available, <code>verified_at</code>, source</td>
+        <td>Invisible to callers and the site until verified. <code>price_display</code> is operator-supplied text — never computed, never guaranteed.</td></tr>
+      <tr><td><code>bookingrequest</code></td><td><code>public_id</code> REQ-…, boat_id → (nullable), customer_name/phone, consent_given, status, source, <code>anonymized_at</code></td>
+        <td><code>boat_id NULL</code> = owner triage. Statuses: pending · confirmed · declined · blocked · cancelled.</td></tr>
+      <tr><td><code>callbackrequest</code></td><td><code>public_id</code> CB-…, customer_name/phone, consent_given, reason, boat_id/operator_id →, status, trigger_seq, attempts, next_attempt_at, expires_at</td>
+        <td>Durable across restarts; the engine owns its lifecycle.</td></tr>
+      <tr><td><code>callbackattempt</code></td><td>callback_id →, trigger_seq, attempted_at, outcome, provider, transcript (JSON)</td>
+        <td>One row per dial attempt; transcript is the provider's script record.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="security">Security &amp; privacy</h2>
+  <ul>
+    <li><strong>Three auth models, three audiences.</strong> Shared-secret header for Sarvam
+        tools; <code>ADMIN_TOKEN</code> for the owner; unguessable portal URLs for
+        operators (hash-only storage, shown once, reissue kills the old link).</li>
+    <li><strong>Bounded input.</strong> 16 KB body cap middleware; Pydantic validation
+        returns <code>400</code> without echoing input back; rate limit on the one
+        endpoint that costs money.</li>
+    <li><strong>Consent before storage.</strong> Customer name/phone is only ever
+        written after an explicit yes — on calls and on the web form. Opt-out is a
+        first-class path, not an edge case.</li>
+    <li><strong>Quiet logs.</strong> No utterances, transcripts, phone numbers or
+        secrets in logs — only trace/interaction IDs, outcomes and latencies.</li>
+    <li><strong>PII retention.</strong> <code>app/pii.py</code> anonymizes stale
+        request PII at startup (and via <code>scripts/anonymize_pii.py</code>) after 90 days.</li>
+    <li><strong>Honest failure.</strong> Upstream errors surface as
+        <code>502 upstream_unavailable</code>; Paayal's tool-failure line says the
+        service is unreachable. Nothing is faked to sound successful.</li>
+  </ul>
+
+  <h2 id="deployment">Deployment reality</h2>
+  <p>Deliberately small: one uvicorn process, one SQLite file, one cloudflared
+  tunnel, one optional Node sidecar. No cluster, no broker, no P2P.</p>
+  <div class="card">
+    <h3>Known fragility</h3>
+    <p class="small" style="margin:.3rem 0 0">
+      uvicorn and cloudflared run as unsupervised background processes — they die
+      on reboot or logout. Process supervision (launchd / <code>cloudflared
+      service install</code>) is a pending task in <code>STATUS.md</code>.</p>
+  </div>
+  <p>For run commands, env vars, the Sarvam dashboard steps and demo scripts see
+  <a href="operations.html">Operations</a>.</p>
+
+  <footer class="colophon">
+    Sources: <code>starter/app/</code>, <code>docs/how-sarvam-and-openai-fit.md</code>,
+    <code>docs/sarvam-dashboard-setup.md</code>, <code>docs/demo-runbook.md</code>,
+    <code>STATUS.md</code>. If code and wiki disagree, the code wins — fix the wiki.
+  </footer>
+</main>
+</div>
+</body>
+</html>

@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#F7F5EE">
+<meta name="description" content="Kaayal operations — run, wire, onboard, demo.">
+<title>Kaayal wiki — Operations</title>
+<link rel="preconnect" href="https://api.fontshare.com">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Noto+Sans+Malayalam:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="wiki.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="masthead">
+  <a class="wordmark" href="index.html">Kaayal <span class="ml" lang="ml">കായൽ</span></a>
+  <span class="wiki-tag">wiki</span>
+</header>
+<div class="layout">
+<nav class="sidenav" aria-label="Wiki pages">
+  <p class="navhead">Pages</p>
+  <ul>
+    <li><a href="index.html">Home</a></li>
+    <li><a href="architecture.html">Architecture</a></li>
+    <li><a href="operations.html" aria-current="page">Operations</a></li>
+  </ul>
+  <p class="navhead">On this page</p>
+  <ul class="ext">
+    <li><a href="#run">Run it</a></li>
+    <li><a href="#env">Environment</a></li>
+    <li><a href="#sarvam">Sarvam setup</a></li>
+    <li><a href="#onboard">Onboard an operator</a></li>
+    <li><a href="#demo">Demo script</a></li>
+    <li><a href="#wa">WhatsApp sidecar</a></li>
+  </ul>
+</nav>
+<main id="main">
+  <p class="crumb"><a href="index.html">Home</a> / Operations</p>
+  <h1>Operations</h1>
+  <p class="lede">
+    Everything needed to run, wire, demo and operate Kaayal — condensed. Each
+    section links to the canonical runbook for the full detail.
+  </p>
+
+  <h2 id="run">Run it locally</h2>
+  <pre><code>cd starter
+uv sync                      # Python 3.11 + deps into .venv
+cp .env.example .env         # then fill in secrets (below)
+uv run python -m app.main    # serves on $PORT (default 8000)
+curl -s localhost:8000/health</code></pre>
+  <pre><code>uv run pytest                # full suite, mocked OpenAI — no key needed
+bash scripts/smoke.sh http://localhost:8000 "$SARVAM_TOOL_SHARED_SECRET"</code></pre>
+  <p>Sarvam tools need a public HTTPS URL — the live one is a cloudflared named
+  tunnel: <code>kaayal.glitchy.systems</code> → <code>localhost:8000</code>. Any
+  tunnel (<code>cloudflared tunnel --url …</code>, ngrok, Tailscale Funnel)
+  works for dev; update <code>KAAYAL_PUBLIC_BASE_URL</code> and the Sarvam tool
+  URLs when it changes.</p>
+  <p class="small muted">Canonical runbook: <a href="../run-local-and-tunnel.md">docs/run-local-and-tunnel.md</a></p>
+
+  <h2 id="env">Environment</h2>
+  <table>
+    <thead><tr><th>Variable</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>OPENAI_API_KEY</code></td><td>Required for <code>voice_reply</code>. Without it the endpoint returns an honest <code>502</code>.</td></tr>
+      <tr><td><code>SARVAM_TOOL_SHARED_SECRET</code></td><td>Shared secret for all <code>/api/*</code> tools. Generate with <code>openssl rand -hex 32</code>; store in Sarvam's masked secret input, never in the prompt.</td></tr>
+      <tr><td><code>ADMIN_TOKEN</code></td><td><code>?t=</code> on <code>/admin</code>.</td></tr>
+      <tr><td><code>KAAYAL_PUBLIC_BASE_URL</code></td><td>Public base for portal links — <code>https://kaayal.glitchy.systems</code> live.</td></tr>
+      <tr><td><code>KAAYAL_PHONE_NUMBER</code> / <code>KAAYAL_WHATSAPP_NUMBER</code></td><td>Shown as call / WhatsApp CTAs on the site.</td></tr>
+      <tr><td><code>DEMO_IGNORE_CALL_WINDOW</code></td><td>Bypass the 09:00–18:00 IST callback window for off-hours demos. Default off.</td></tr>
+      <tr><td><code>SIM_CALLBACK_OUTCOME</code></td><td><code>interested</code> · <code>not_interested</code> · <code>no_answer</code> — deterministic demo results.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="sarvam">Sarvam dashboard setup</h2>
+  <ol class="flow">
+    <li>Confirm the already-provisioned number under <strong>Deploy → Phone
+        Numbers</strong>. Do not rent a new one.</li>
+    <li>Create five API tools (<code>voice_reply</code>, <code>list_boats</code>,
+        <code>get_boat</code>, <code>create_booking_request</code>,
+        <code>create_callback_request</code>) — all <code>api_key</code> auth with
+        header <code>X-Kaayal-Tool-Token</code>, 10–15s max wait, an honest
+        failure line.</li>
+    <li>Paste the Paayal checklist prompt into the agent instructions (it is the
+        only lever over when tools fire) and enable all five tools.</li>
+    <li>Initial language Malayalam (<code>ml-IN</code>), Malayalam-capable voice.</li>
+    <li><strong>Deploy → Inbounds → Create Inbound</strong>: attach agent +
+        number, widen calling hours to 00:00–23:59 for testing.</li>
+    <li>Press <strong>Test</strong> in each tool editor, then place real calls in
+        Malayalam and English — general question, boat question, test request.</li>
+  </ol>
+  <p class="small muted">Full steps, exact request bodies and the Paayal prompt:
+  <a href="../sarvam-dashboard-setup.md">docs/sarvam-dashboard-setup.md</a></p>
+
+  <h2 id="onboard">Onboard an operator (~2 min)</h2>
+  <ol class="flow">
+    <li><code>/admin?t=…</code> → <strong>Add operator</strong> → copy the
+        one-time portal link. The link <em>is</em> their access.</li>
+    <li>Send it to them however you normally talk (call, WhatsApp, in person).</li>
+    <li>They add boats on the portal — each lands <span class="badge wait">pending verification</span>, invisible to callers.</li>
+    <li>You <strong>Verify</strong> in <code>/admin</code> → live on the site and
+        in <code>list_boats</code>.</li>
+    <li>Requests reach their portal; <strong>Confirm</strong> reveals the
+        customer's contact for a direct call-back. Lost link →
+        <strong>Reissue</strong> in admin (old link dies instantly).</li>
+  </ol>
+  <p class="small muted">Canonical runbook: <a href="../operator-onboarding.md">docs/operator-onboarding.md</a></p>
+
+  <h2 id="demo">Demo script</h2>
+  <p><code>/admin</code> → <strong>Seed demo data</strong> creates two clearly
+  labeled demo operators — one reachable with an available boat, one unreachable
+  with an unavailable boat — so every scenario is walkable without real inventory:</p>
+  <table>
+    <thead><tr><th>Scenario</th><th>Shows</th></tr></thead>
+    <tbody>
+      <tr><td>Tourist journey</td><td>Inquire on unavailable boat → consent → callback queued → operator flips available → engine calls (simulated) → inquiry auto-created → operator confirms.</td></tr>
+      <tr><td>Operator unreachable</td><td>Same loop triggered by the portal "I'm reachable" toggle.</td></tr>
+      <tr><td>WhatsApp onboarding</td><td>DM → bot → pending approval → admin approves → portal link back over WhatsApp.</td></tr>
+      <tr><td>Safety</td><td>"Don't call me" opt-outs, retry caps, expiry, 90-day PII anonymization.</td></tr>
+    </tbody>
+  </table>
+  <p class="small muted">Full script incl. what's real vs simulated:
+  <a href="../demo-runbook.md">docs/demo-runbook.md</a></p>
+
+  <h2 id="wa">WhatsApp sidecar (demo only)</h2>
+  <pre><code>cd starter/wa-bot
+npm install && npm start     # prints a QR — pair it on the +91 9400354625 phone</code></pre>
+  <p>Operators DM that number; the bot walks them through name → boat and posts
+  to <code>POST /api/ops/wa_onboard</code> (same tool token). Repeat DMs re-issue
+  the portal link. Boats arrive <code>source=wa-demo</code>, unverified.</p>
+  <div class="card">
+    <h3>Boundary</h3>
+    <p class="small" style="margin:.3rem 0 0">open-wa automates WhatsApp Web —
+    unofficial, ban-able, dies when the paired phone is offline. Production
+    WhatsApp Business API is explicitly deferred.</p>
+  </div>
+  <p class="small muted">Canonical runbook: <a href="../wa-demo.md">docs/wa-demo.md</a></p>
+
+  <hr class="rule">
+  <p class="small">Governance — what may not be built without owner approval:
+  <a href="../REVIEW_DECISIONS.md">docs/REVIEW_DECISIONS.md</a> ·
+  <a href="../PHASE2_CLARIFICATIONS.md">docs/PHASE2_CLARIFICATIONS.md</a> ·
+  <code>starter/AGENTS.md</code>.</p>
+
+  <footer class="colophon">
+    Kaayal wiki · operations · keep this page in sync with the runbooks it summarizes.
+  </footer>
+</main>
+</div>
+</body>
+</html>
