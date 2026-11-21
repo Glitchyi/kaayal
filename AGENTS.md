@@ -9,8 +9,12 @@ The working app + product guardrails live in `starter/` — **read `starter/AGEN
 | `ui-ux-pro-max` | github.com/nextlevelbuilder/ui-ux-pro-max-skill | `f76d165` | Design-system research: palettes, typography, stack guidance (`data/*.csv`, `references/`) |
 | `frontend-design` | github.com/anthropics/skills | `e4bb5d9` | Distinctive anti-generic visual direction |
 | `web-design-guidelines` | github.com/vercel-labs/agent-skills | `5a37a63` | Accessibility/interaction review (`references/command.md`) |
+| `codebase-design` | github.com/mattpocock/skills | `abeeaf9` | Deep-module vocabulary (module, interface, depth, seam, adapter) for code design/restructuring |
+| `improve-codebase-architecture` | github.com/mattpocock/skills | `abeeaf9` | User-invoked architecture survey: finds deepening candidates, renders HTML report, grills chosen candidate |
+| `grilling` | github.com/mattpocock/skills | `abeeaf9` | Companion to improve-codebase-architecture: stress-tests a chosen refactor decision |
+| `domain-modeling` | github.com/mattpocock/skills | `abeeaf9` | Companion to improve-codebase-architecture: maintains `GLOSSARY.md` / ADRs |
 
-These are invocable skills (`/ui-ux-pro-max`, `/frontend-design`, `/web-design-guidelines`) and plain reference files — **supporting input only**. The final authority is `starter/docs/design/KAAYAL_DESIGN_SYSTEM.md`.
+These are invocable skills (`/ui-ux-pro-max`, `/frontend-design`, `/web-design-guidelines`, `/codebase-design`, `/improve-codebase-architecture`, `/grilling`, `/domain-modeling`) and plain reference files — **supporting input only**. The final authority is `starter/docs/design/KAAYAL_DESIGN_SYSTEM.md`.
 
 ## Design workflow (mandatory before/after any UI work)
 
