@@ -84,10 +84,13 @@ def _fmt_dt(dt) -> str:
 
 
 def _op_row(o: Operator, t: str) -> str:
-    badge = '<span class="badge ok">active</span>' if o.active else '<span class="badge bad">inactive</span>'
+    if o.approved_at is None:
+        # Until approved, active-state is moot — show just the wait badge.
+        badge = _status_badge("pending approval")
+    else:
+        badge = '<span class="badge ok">active</span>' if o.active else '<span class="badge bad">inactive</span>'
     actions = []
     if o.approved_at is None:
-        badge += f" {_status_badge('pending approval')}"
         actions.append(
             f"<form class=inline method=post action='/admin/operators/{o.id}/approve?t={t}'>"
             f"<button>Approve</button></form>"
@@ -205,7 +208,7 @@ def admin_home(request: Request, t: str | None = None, done: str | None = None):
 {notice}
 {ledger}
 <h2 id="ops">Operators</h2>
-<div class=tablewrap><table><thead><tr><th>#</th><th>Name</th><th>Phone</th><th>Source</th><th>Status</th><th>Actions</th></tr></thead><tbody>{op_rows}</tbody></table></div>
+<div class=tablewrap><table><thead><tr><th>#</th><th>Name</th><th>Phone</th><th>Source</th><th>Status</th><th class=actions>Actions</th></tr></thead><tbody>{op_rows}</tbody></table></div>
 <div class=card>
 <h3>Add operator</h3>
 <form method=post action='/admin/operators?t={t}'>
@@ -217,13 +220,13 @@ def admin_home(request: Request, t: str | None = None, done: str | None = None):
 </form>
 </div>
 <h2 id="boats">Boats</h2>
-<div class=tablewrap><table><thead><tr><th>#</th><th>Name</th><th>Type</th><th>Boarding</th><th>Operator</th><th>Booking</th><th>Status</th><th>Actions</th></tr></thead><tbody>{boat_rows}</tbody></table></div>
+<div class=tablewrap><table><thead><tr><th>#</th><th>Name</th><th>Type</th><th>Boarding</th><th>Operator</th><th>Booking</th><th>Status</th><th class=actions>Actions</th></tr></thead><tbody>{boat_rows}</tbody></table></div>
 <h2 id="requests">All booking requests</h2>
 <div class=tablewrap><table><thead><tr><th>ID</th><th>Customer</th><th>Boat</th><th>Date</th><th>Group</th><th>Source</th><th>Operator note</th><th>Status</th></tr></thead><tbody>{req_rows}</tbody></table></div>
 <h2 id="callbacks">Callbacks</h2>
 <p class=muted>Customers Paayal rings back — calls go out 09:00–18:00 IST, max {_CB_MAX_ATTEMPTS} tries per trigger.</p>
 <form class=inline method=post action='/admin/callbacks/run_due?t={t}'><button class=secondary>Run due callbacks now</button></form>
-<div class=tablewrap><table><thead><tr><th>ID</th><th>Customer</th><th>Reason</th><th>Status</th><th>Tries</th><th>Next attempt</th><th>Expires</th><th>Actions</th></tr></thead><tbody>{cb_rows}</tbody></table></div>
+<div class=tablewrap><table><thead><tr><th>ID</th><th>Customer</th><th>Reason</th><th>Status</th><th>Tries</th><th>Next attempt</th><th>Expires</th><th class=actions>Actions</th></tr></thead><tbody>{cb_rows}</tbody></table></div>
 <h2 id="demo">Demo data</h2>
 <div class=card>
 <p class="muted small">Clearly-labeled demo inventory for walkthroughs. Seeding is idempotent; clearing removes the demo rows and their requests/callbacks.</p>

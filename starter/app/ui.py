@@ -136,7 +136,8 @@ ol ::marker {{ color: var(--teal); font-family: {DISPLAY_FONT}; }}
 html {{ scroll-behavior: smooth; }}
 section[id] {{ scroll-margin-top: 5.5rem; margin-top: 3.25rem; }}
 h2[id] {{ scroll-margin-top: 4.5rem; }}
-td.actions {{ white-space: nowrap; }}
+td.actions, th.actions {{ white-space: nowrap; text-align: right; }}
+.tablewrap td {{ vertical-align: middle; }}
 td.actions form.inline button {{ min-height: 2.5rem; padding: .35rem .8rem; font-size: .85rem; margin: .1rem .3rem .1rem 0; }}
 @keyframes ping {{
   0% {{ box-shadow: 0 0 0 0 rgba(38, 122, 115, .32); }}
