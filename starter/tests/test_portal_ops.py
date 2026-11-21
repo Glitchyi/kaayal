@@ -181,3 +181,60 @@ async def test_decline_sets_status_and_note(app, client):
     page = await client.get(f"/portal/{OP_TOKEN}")
     assert "fully booked that week" in page.text
     assert "voice" in page.text  # source badge shown
+
+
+# --- delete boat: soft-delete only ---
+
+async def test_delete_boat_soft_deletes(app, client):
+    _, boat = seed_operator(app)
+    r = await client.post(f"/portal/{OP_TOKEN}/boats/{boat.id}/delete",
+                          follow_redirects=False)
+    assert r.status_code == 303
+    with Session(app.state.engine) as s:
+        b = s.get(Boat, boat.id)
+        assert b.active is False          # row kept for request history
+    page = await client.get(f"/portal/{OP_TOKEN}")
+    assert "Lake Queen</td>" not in page.text
+
+
+async def test_delete_other_operators_boat_is_noop(app, client):
+    _, boat = seed_operator(app)
+    with Session(app.state.engine) as s:
+        s.add(Operator(name="Other", phone="+9102",
+                       token_hash=hash_token("other-token"), approved_at=utcnow()))
+        s.commit()
+    r = await client.post(f"/portal/other-token/boats/{boat.id}/delete")
+    assert r.status_code == 303
+    with Session(app.state.engine) as s:
+        assert s.get(Boat, boat.id).active is True  # untouched
+
+
+# --- request transitions: guards ---
+
+async def test_transition_on_non_pending_is_noop(app, client):
+    """Only pending requests can transition; a confirmed request ignores
+    later decline/block posts instead of flipping status."""
+    _, boat = seed_operator(app)
+    req = seed_request(app, boat.id, status="confirmed")
+    for action in ("confirm", "decline", "block"):
+        r = await client.post(
+            f"/portal/{OP_TOKEN}/requests/{req.public_id}/{action}",
+            follow_redirects=False)
+        assert r.status_code == 303
+    with Session(app.state.engine) as s:
+        assert s.get(BookingRequest, req.id).status == "confirmed"
+
+
+async def test_transition_unknown_public_id_404(app, client):
+    seed_operator(app)
+    r = await client.post(f"/portal/{OP_TOKEN}/requests/REQ-9999-zzzz/confirm")
+    assert r.status_code == 404
+
+
+async def test_portal_post_with_bad_token_404(app, client):
+    seed_operator(app)
+    # /boats needs the required form field to reach the token check.
+    assert (await client.post("/portal/nope/boats", data={"name": "X"})).status_code == 404
+    for path in ("/portal/nope/toggle_reachable", "/portal/nope/boats/1/delete",
+                 "/portal/nope/requests/REQ-0001-ab12/confirm"):
+        assert (await client.post(path)).status_code == 404

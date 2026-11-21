@@ -113,6 +113,10 @@ def create_app(settings: Settings | None = None, responder=None) -> FastAPI:
     async def require_tool_auth(
         x_kaayal_tool_token: str | None = Header(default=None),
     ) -> None:
+        # DEMO: owner decision (see starter/AGENTS.md) — tool auth is OFF;
+        # all /api/* endpoints answer with no token. Do not re-enable or add
+        # auth-expecting tests unless the owner explicitly asks.
+        return
         secret = settings.sarvam_tool_shared_secret
         if not secret:
             raise _ServiceMisconfigured

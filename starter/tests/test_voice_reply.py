@@ -62,18 +62,20 @@ async def test_reply_success(client):
     assert body["trace_id"]
 
 
-async def test_reply_missing_token(client):
+# DEMO: tool auth is disabled (main.require_tool_auth returns early), so the
+# endpoint accepts calls with no token or a wrong token. Revisit before real use.
+async def test_reply_missing_token_accepted_in_demo(client):
     r = await client.post("/api/voice/reply", json={"utterance": "hello"})
-    assert r.status_code == 401
+    assert r.status_code == 200
 
 
-async def test_reply_wrong_token(client):
+async def test_reply_wrong_token_accepted_in_demo(client):
     r = await client.post(
         "/api/voice/reply",
         json={"utterance": "hello"},
         headers={"X-Kaayal-Tool-Token": "wrong"},
     )
-    assert r.status_code == 401
+    assert r.status_code == 200
 
 
 async def test_reply_missing_utterance(client):
@@ -117,11 +119,12 @@ async def test_reply_upstream_error_returns_502():
     assert r.json()["trace_id"]
 
 
-async def test_reply_unconfigured_secret_returns_503():
+async def test_reply_works_with_no_secret_configured():
+    # Demo mode doesn't consult sarvam_tool_shared_secret at all.
     app = create_app(settings=make_test_settings(sarvam_tool_shared_secret=None), responder=ok_responder)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         r = await c.post("/api/voice/reply", json={"utterance": "hi"}, headers=AUTH)
-    assert r.status_code == 503
+    assert r.status_code == 200
 
 
 async def test_rate_limit():

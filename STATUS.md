@@ -24,6 +24,7 @@
 - `https://kaayal.glitchy.systems` — FastAPI via Cloudflare named tunnel `kaayal` (ID `9af85681-71d7-4370-a455-11f14d293d1b`) → `localhost:8000`
 - Public repo: https://github.com/Glitchyi/kaayal (SSH `git@github.com:Glitchyi/kaayal.git`)
 - Integrated prototype: voice tools (Sarvam → `voice_reply`/catalog/request/callback), SQLite catalog + portal + admin, event-driven callback engine (simulated dialer), WhatsApp demo onboarding (open-wa sidecar)
+- **DEMO DECISION (owner, 2026-11-22): tool-token auth is OFF** — `require_tool_auth` early-returns; `/api/*` works with no `X-Kaayal-Tool-Token`. Do not re-enable or write auth-expecting tests without explicit owner approval.
 - Public site: `/` `/boats` `/paayal` `/explore` `/before-you-book` `/dtpc-houseboat-counter` `/faq` + `robots.txt` `sitemap.xml`. `/inquire` and `/join` were **removed** (no data-storing public forms — inquiries voice-only, onboarding WhatsApp/admin-only)
 - Tests: 113 pass (`cd starter && .venv/bin/python -m pytest -q`)
 - Lighthouse (mobile, home): perf 97, a11y 95

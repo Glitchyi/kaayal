@@ -101,9 +101,9 @@ async def test_deactivate_blocks_portal(app, client):
 async def test_deactivated_operator_boats_leave_catalog(app, client):
     op_id, boat_id = seed_operator(app, verified=True)
     r = await client.get("/api/catalog/boats", headers=AUTH)
-    assert [b["name"] for b in r.json()] == ["Lake Queen"]
+    assert [b["name"] for b in r.json()["boats"]] == ["Lake Queen"]
     await client.post(f"/admin/operators/{op_id}/deactivate?t={ADMIN}")
-    assert (await client.get("/api/catalog/boats", headers=AUTH)).json() == []
+    assert (await client.get("/api/catalog/boats", headers=AUTH)).json()["boats"] == []
     assert (await client.get(f"/api/catalog/boats/{boat_id}", headers=AUTH)).status_code == 404
 
 

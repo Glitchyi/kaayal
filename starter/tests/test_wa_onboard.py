@@ -90,8 +90,14 @@ async def test_repeat_message_reissues_link(client, app):
     assert (await client.get(f"/portal/{_token_from(second['portal_url'])}")).status_code == 200
 
 
-async def test_requires_auth_and_valid_phone(client):
-    assert (await client.post("/api/ops/wa_onboard", json={"phone": "919400354625", "name": "R"})).status_code == 401
+# DEMO: tool auth is disabled (main.require_tool_auth returns early), so
+# onboarding accepts calls with no token. Revisit before real use.
+async def test_open_without_auth(client):
+    r = await client.post("/api/ops/wa_onboard", json={"phone": "919400354625", "name": "R"})
+    assert r.status_code == 200
+
+
+async def test_rejects_invalid_phone(client):
     assert (
         await client.post("/api/ops/wa_onboard", headers=AUTH, json={"phone": "x", "name": "R"})
     ).status_code in (400, 422)
@@ -108,6 +114,49 @@ async def test_boat_deduped_on_repeat(client, app):
         assert r.json()["boat_id"] == boats[0].id
 
 
+async def test_reissue_unknown_number_404(client):
+    r = await client.post("/api/ops/wa_reissue", headers=AUTH, json={"phone": "919400354625"})
+    assert r.status_code == 404
+
+
+async def test_reissue_rejects_invalid_phone(client):
+    r = await client.post("/api/ops/wa_reissue", headers=AUTH, json={"phone": "nope!!"})
+    assert r.status_code == 400
+    assert r.json()["detail"] == "invalid_phone"
+
+
+async def test_payloads_forbid_extra_fields(client):
+    r = await client.post("/api/ops/wa_onboard", headers=AUTH,
+                          json={"phone": "919400354625", "name": "R", "admin": True})
+    assert r.status_code == 400
+    r = await client.post("/api/ops/wa_reissue", headers=AUTH,
+                          json={"phone": "919400354625", "boat_name": "X"})
+    assert r.status_code == 400
+
+
+async def test_reissue_pending_returns_no_link(client, app):
+    with Session(app.state.engine) as s:
+        s.add(Operator(name="Raj", phone="+919400354625",
+                       token_hash=hash_token("seed"), approved_at=None))
+        s.commit()
+    r = await client.post("/api/ops/wa_reissue", headers=AUTH, json={"phone": "919400354625"})
+    body = r.json()
+    assert r.status_code == 200 and body["status"] == "pending_approval"
+    assert body["portal_url"] is None and body["name"] == "Raj"
+
+
+async def test_reissue_approved_rotates_link(client, app):
+    with Session(app.state.engine) as s:
+        s.add(Operator(name="Raj", phone="+919400354625",
+                       token_hash=hash_token("seed"), approved_at=utcnow()))
+        s.commit()
+    r = await client.post("/api/ops/wa_reissue", headers=AUTH, json={"phone": "+91 94003 54625"})
+    body = r.json()
+    assert body["status"] == "approved" and body["portal_url"].startswith(f"{BASE}/portal/")
+    assert (await client.get("/portal/seed")).status_code in (403, 404)
+    assert (await client.get(f"/portal/{_token_from(body['portal_url'])}")).status_code == 200
+
+
 async def test_unverified_boat_hidden_from_catalog(client):
     await client.post(
         "/api/ops/wa_onboard",
@@ -115,4 +164,4 @@ async def test_unverified_boat_hidden_from_catalog(client):
         json={"phone": "919400354625", "name": "Raj", "boat_name": "Lake Queen"},
     )
     r = await client.get("/api/catalog/boats", headers=AUTH)
-    assert r.status_code == 200 and r.json() == []
+    assert r.status_code == 200 and r.json()["boats"] == []

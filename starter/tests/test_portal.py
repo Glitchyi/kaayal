@@ -68,10 +68,13 @@ def seed_request(app, boat_id, status="pending"):
 
 # --- voice request endpoint ---
 
-async def test_create_request_requires_auth(client):
+# DEMO: tool auth is disabled (main.require_tool_auth returns early), so the
+# voice-request endpoint accepts calls with no token. Revisit before real use.
+async def test_create_request_open_without_auth(client):
     r = await client.post("/api/voice/request", json={
         "customer_name": "Anu", "customer_phone": "+9198765", "consent_given": True})
-    assert r.status_code == 401
+    assert r.status_code == 200
+    assert r.json()["status"] == "pending"
 
 
 async def test_create_request_consent_required(client):
