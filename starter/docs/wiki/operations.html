@@ -150,12 +150,27 @@ bash scripts/smoke.sh http://localhost:8000 "$SARVAM_TOOL_SHARED_SECRET"</code><
 docker compose up -d wa-bot   # the wa-session volume keeps the pairing across recreates
 docker compose logs -f wa-bot # prints a QR — pair it on the +91 9400354625 phone
 # fallback if containers aren't running: cd starter/wa-bot && npm install && npm start</code></pre>
-  <p>Operators DM that number; the bot walks them through name → boat and posts
-  to <code>POST /api/ops/wa_onboard</code> (same tool token). Repeat DMs re-issue
-  the portal link. Boats arrive <code>source=wa-demo</code>, unverified.</p>
+  <p>Operators DM that number; the bot walks them through name → boat
+  (<code>name, boat type, boarding point</code> or <code>skip</code>, confirmed
+  with YES/NO) and posts to <code>POST /api/ops/wa_onboard</code> (same tool
+  token). Voice notes are decrypted and transcribed server-side
+  (<code>wa_transcribe</code>, whisper-1). Repeat DMs re-issue the portal link —
+  the old one dies instantly. Boats arrive <code>source=wa-demo</code>,
+  unverified.</p>
+  <table>
+    <thead><tr><th>Chat command</th><th>Effect</th></tr></thead>
+    <tbody>
+      <tr><td><code>REQUESTS</code></td><td>Lists the operator's pending requests — names shown, customer numbers stay masked until confirm.</td></tr>
+      <tr><td><code>REQ-xxxx</code></td><td>Confirms the request, unmasks the caller's number, and fires the notify call (demo dialer).</td></tr>
+      <tr><td><code>DECLINE REQ-xxxx</code></td><td>Declines; nothing is sent to the caller.</td></tr>
+      <tr><td>Reply <code>YES</code>/<code>NO</code> to the request ping</td><td>Swipe-reply shortcut — works only when the quoted message names exactly one REQ id.</td></tr>
+      <tr><td><code>PAUSE</code> / <code>RESUME</code></td><td>Flips operator reachability; RESUME fires queued <code>operator_unreachable</code> callbacks.</td></tr>
+      <tr><td><code>HELP</code></td><td>Lists the commands.</td></tr>
+    </tbody>
+  </table>
   <div class="card">
     <h3>Boundary</h3>
-    <p class="small" style="margin:.3rem 0 0">open-wa automates WhatsApp Web —
+    <p class="small" style="margin:.3rem 0 0">whatsapp-web.js automates WhatsApp Web —
     unofficial, ban-able, dies when the paired phone is offline. Production
     WhatsApp Business API is explicitly deferred.</p>
   </div>
