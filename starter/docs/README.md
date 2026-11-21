@@ -37,5 +37,3 @@ without updating those references.
 ## Governance / decisions
 
 - `REVIEW_DECISIONS.md` — settled owner decisions and pre-live-call checks.
-- `PHASE2_CLARIFICATIONS.md` — questions that must be answered before any
-  Phase 2 expansion. Blocked until owner approval.
