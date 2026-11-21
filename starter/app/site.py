@@ -32,10 +32,134 @@ _CONTOURS = """
 </svg>
 """
 
+# Cantilevered Chinese fishing net over the water — the Alappuzha silhouette.
+# Same stroked draw-in language as the hero scene; the boom drifts gently.
+_NETSCAPE = """
+<svg class="scene" data-plx="0.22" aria-hidden="true" viewBox="0 0 720 190" width="100%"
+     style="display:block;margin:2.5rem 0 .5rem;overflow:visible">
+  <circle cx="118" cy="46" r="22" fill="#C68E55" opacity=".25"/>
+  <g fill="none" stroke="#123F3C" stroke-width="1.4" stroke-linecap="round" opacity=".5">
+    <path d="M96,50 q5,-5 10,0 q5,-5 10,0"/>
+    <path d="M138,36 q5,-5 10,0 q5,-5 10,0"/>
+  </g>
+  <path d="M0,140 C120,132 260,144 400,136 S640,128 720,138"
+        fill="none" stroke="#123F3C" stroke-width="1" opacity=".25"/>
+  <g class="net" fill="none" stroke="#123F3C" stroke-linecap="round">
+    <path d="M350,158 L392,158" stroke-width="2.4"/>
+    <path d="M452,158 L452,56" stroke-width="2.8"/>
+    <path d="M430,158 L452,92 M474,158 L452,92" stroke-width="1.5" opacity=".6"/>
+    <path d="M452,56 L656,118" stroke-width="2.4"/>
+    <path d="M452,44 C520,50 600,88 656,116" stroke-width="1.2" opacity=".7"/>
+    <path d="M452,56 L398,92" stroke-width="1.9" opacity=".75"/>
+    <path d="M398,92 L398,102" stroke-width="1.2" opacity=".7"/>
+    <circle cx="398" cy="106" r="5" fill="#123F3C" stroke="none" opacity=".85"/>
+    <circle cx="389" cy="112" r="4" fill="#123F3C" stroke="none" opacity=".6"/>
+    <circle cx="407" cy="112" r="4" fill="#123F3C" stroke="none" opacity=".6"/>
+    <path d="M398,92 C388,104 378,112 372,121" stroke-width="1.2" opacity=".7"/>
+    <g stroke-width="1" opacity=".8">
+      <path d="M656,118 L614,150"/>
+      <path d="M656,118 L690,150"/>
+      <path d="M656,118 L652,152"/>
+      <path d="M614,150 C634,143 670,143 690,150"/>
+      <path d="M614,150 C628,168 640,174 652,178"/>
+      <path d="M690,150 C676,168 664,174 652,178"/>
+      <path d="M622,156 C638,166 666,166 682,156" opacity=".6"/>
+      <path d="M630,161 C642,169 662,169 674,161" opacity=".45"/>
+      <path d="M652,152 L652,176 M636,154 L640,172 M668,154 L664,172" opacity=".5"/>
+    </g>
+    <g fill="none" stroke="#123F3C" stroke-width="1.7" stroke-linecap="round">
+      <circle cx="370" cy="108" r="4.5" fill="#123F3C" stroke="none"/>
+      <path d="M370,114 C368,126 369,140 372,148"/>
+      <path d="M372,148 L364,158 M372,148 L380,158"/>
+      <path d="M371,122 L388,110"/>
+    </g>
+    <path d="M452,56 L452,42" stroke-width="2"/>
+    <path d="M452,44 L468,48 L452,52 Z" fill="#C68E55" stroke="none" opacity=".75"/>
+  </g>
+  <g class="reeds" fill="none" stroke="#267A73" stroke-width="1.5" stroke-linecap="round" opacity=".8">
+    <path d="M66,152 C63,134 64,116 70,100"/>
+    <path d="M78,152 C78,138 82,122 90,110"/>
+    <path d="M58,152 C55,140 52,128 54,116"/>
+    <path d="M70,100 C76,92 84,90 90,92"/>
+    <path d="M90,110 C96,104 102,104 106,108"/>
+  </g>
+  <g fill="none" stroke="#267A73" stroke-width="1.2">
+    <ellipse class="rip" cx="606" cy="156" rx="40" ry="4"/>
+    <ellipse class="rip rip2" cx="606" cy="156" rx="40" ry="4"/>
+  </g>
+  <g class="waves" fill="none" stroke="#267A73" stroke-width="1.4">
+    <path d="M0,164 C120,152 240,170 360,160 S620,148 720,160" opacity=".8"/>
+    <path d="M0,174 C140,164 280,180 400,170 S600,158 720,170" opacity=".55"/>
+  </g>
+</svg>
+"""
+
+# A punted canoe slipping past reeds — the everyday Alappuzha commute.
+_CANOE = """
+<svg class="scene" data-plx="0.3" aria-hidden="true" viewBox="0 0 720 160" width="100%"
+     style="display:block;margin:2.5rem 0 .5rem;overflow:visible">
+  <path d="M0,110 C130,102 260,114 400,106 S630,98 720,108"
+        fill="none" stroke="#123F3C" stroke-width="1" opacity=".22"/>
+  <g class="reeds" fill="none" stroke="#267A73" stroke-width="1.5" stroke-linecap="round" opacity=".8">
+    <path d="M620,118 C617,100 618,84 624,70"/>
+    <path d="M636,118 C636,104 640,88 648,78"/>
+    <path d="M652,118 C655,106 658,96 664,86"/>
+    <path d="M648,78 C654,72 662,72 666,76"/>
+    <path d="M664,86 C670,82 676,82 680,86"/>
+  </g>
+  <g class="boat">
+    <path d="M140,112 C200,124 330,128 420,122 C462,119 486,110 500,100
+             L492,112 C450,128 240,132 180,122 C162,119 148,116 140,112 Z"
+          fill="#123F3C"/>
+    <path d="M154,114 C240,123 380,123 484,107" fill="none" stroke="#F7F5EE"
+          stroke-width="1" opacity=".45"/>
+    <g fill="none" stroke="#123F3C" stroke-width="1.8" stroke-linecap="round">
+      <path d="M222,78 A35,35 0 0 1 292,78"/>
+      <path d="M257,50 L236,78 M257,50 L257,80 M257,50 L280,78" opacity=".7"/>
+      <path d="M257,78 L257,96"/>
+      <circle cx="252" cy="88" r="5.5" fill="#123F3C" stroke="none"/>
+      <path d="M250,94 C248,101 248,106 254,110"/>
+      <path d="M254,110 C261,112 268,112 274,110" opacity=".8"/>
+    </g>
+    <ellipse cx="322" cy="106" rx="11" ry="5" fill="none" stroke="#123F3C"
+             stroke-width="1.4" opacity=".7"/>
+    <path d="M315,104 C316,98 328,98 329,104" fill="none" stroke="#123F3C"
+          stroke-width="1.2" opacity=".7"/>
+    <g fill="none" stroke="#123F3C" stroke-width="2" stroke-linecap="round">
+      <circle cx="412" cy="54" r="7" fill="#123F3C" stroke="none"/>
+      <path d="M412,62 C410,78 412,94 418,106"/>
+      <path d="M418,106 L408,114 M418,106 L424,112"/>
+      <path d="M438,40 L458,118"/>
+      <path d="M413,72 L442,58 M414,80 L447,72"/>
+    </g>
+    <path d="M146,110 L134,102" stroke="#123F3C" stroke-width="2" stroke-linecap="round" fill="none"/>
+  </g>
+  <g fill="none" stroke="#267A73" stroke-width="1.2">
+    <ellipse class="rip" cx="458" cy="122" rx="34" ry="4"/>
+    <ellipse class="rip rip2" cx="458" cy="122" rx="34" ry="4"/>
+  </g>
+  <g fill="none" stroke="#123F3C" stroke-width="1.3" stroke-linecap="round" opacity=".75">
+    <path d="M552,118 L552,106 M556,118 L556,106"/>
+    <path d="M548,105 C550,98 558,94 562,98 C566,101 565,106 560,108"/>
+    <path d="M562,98 C564,92 568,88 572,89"/>
+    <path d="M572,89 L577,90"/>
+  </g>
+  <g class="waves" fill="none" stroke="#267A73" stroke-width="1.2">
+    <path d="M544,120 C548,117 556,117 560,120 C556,123 548,123 544,120 Z" opacity=".7"/>
+    <path d="M590,126 C594,123 602,123 606,126 C602,129 594,129 590,126 Z" opacity=".6"/>
+    <path d="M120,126 C124,123 132,123 136,126 C132,129 124,129 120,126 Z" opacity=".6"/>
+  </g>
+  <g class="waves" fill="none" stroke="#267A73" stroke-width="1.4">
+    <path d="M0,132 C120,122 240,138 360,128 S620,116 720,128" opacity=".8"/>
+    <path d="M0,142 C140,132 280,146 400,138 S600,128 720,138" opacity=".55"/>
+  </g>
+</svg>
+"""
+
 # Hand-drawn kettuvallam scene: sun, birds, palms, a houseboat drifting on
 # animated waterlines. Stroked elements draw themselves in via motion.dev.
 _SCENE = """
-<svg class="scene" aria-hidden="true" viewBox="0 0 720 230" width="100%"
+<svg class="scene" data-plx="0.18" aria-hidden="true" viewBox="0 0 720 230" width="100%"
      style="display:block;margin:2rem 0 .25rem;overflow:visible">
   <circle cx="585" cy="48" r="24" fill="#C68E55" opacity=".28"/>
   <g class="birds" fill="none" stroke="#123F3C" stroke-width="1.4"
@@ -68,8 +192,20 @@ _SCENE = """
     <path d="M270,158 C274,132 306,116 348,114 C390,112 430,132 450,158"
           fill="none" stroke="#267A73" stroke-width="1" opacity=".4"/>
     <path d="M208,158 L506,158" stroke="#123F3C" stroke-width="2"/>
+    <path d="M210,166 C300,178 420,176 500,164" fill="none" stroke="#F7F5EE"
+          stroke-width="1.2" opacity=".4"/>
+    <path d="M222,158 C224,148 232,140 242,136" fill="none" stroke="#123F3C"
+          stroke-width="1.2" opacity=".8"/>
+    <path d="M478,158 C476,148 468,140 458,136" fill="none" stroke="#123F3C"
+          stroke-width="1.2" opacity=".8"/>
     <path d="M538,158 L552,116" stroke="#123F3C" stroke-width="2.4" stroke-linecap="round"/>
     <circle cx="552" cy="112" r="3.5" fill="#123F3C"/>
+    <path d="M552,116 L568,121 L552,126 Z" fill="#C68E55" opacity=".8"/>
+    <path d="M330,150 L330,157" stroke="#123F3C" stroke-width="1"/>
+    <circle cx="330" cy="160" r="3" fill="none" stroke="#123F3C" stroke-width="1.1"/>
+    <g stroke="#267A73" stroke-width="1.2" opacity=".35" stroke-linecap="round">
+      <path d="M240,201 l24,0 M312,205 l30,0 M402,203 l22,0 M470,199 l16,0"/>
+    </g>
   </g>
   <g fill="none" stroke="#267A73" stroke-width="1.2">
     <ellipse class="rip" cx="350" cy="196" rx="70" ry="5"/>
@@ -87,11 +223,6 @@ _SCENE = """
 # --- shared chrome ----------------------------------------------------------
 
 def _nav(request: Request) -> str:
-    phone = request.app.state.settings.kaayal_phone_number
-    cta = ""
-    if phone:
-        digits = re.sub(r"\D", "", phone)
-        cta = f'<a class="btn navcall" href="tel:+{_esc(digits)}">Call {_esc(phone)}</a>'
     return (
         '<nav class="topnav" aria-label="Main">'
         '<a class="wordmark" href="/">Kaayal <span class="ml" lang="ml">കായൽ</span></a>'
@@ -102,8 +233,23 @@ def _nav(request: Request) -> str:
         '<a class="navlink" href="#before-you-book">Before You Book</a>'
         '<a class="navlink" href="#dtpc">DTPC counter</a>'
         '<a class="navlink" href="#faq">FAQ</a>'
-        f"{cta}</nav>"
+        "</nav>"
     )
+
+
+# Floating call button — persistent CTA, flat teal, voicewave mark.
+_FAB = (
+    '<a class="fab-call" href="tel:+{digits}" aria-label="Call Paayal">'
+    '<svg class="voicewave" width="18" height="14" viewBox="0 0 46 24" aria-hidden="true">'
+    '<rect x="0" y="8" width="3" height="8" rx="1.5" fill="#F7F5EE"/>'
+    '<rect x="7" y="4" width="3" height="16" rx="1.5" fill="#F7F5EE"/>'
+    '<rect x="14" y="7" width="3" height="10" rx="1.5" fill="#F7F5EE"/>'
+    '<rect x="21" y="3" width="3" height="18" rx="1.5" fill="#F7F5EE"/>'
+    '<rect x="28" y="6" width="3" height="12" rx="1.5" fill="#F7F5EE"/>'
+    '<rect x="35" y="5" width="3" height="14" rx="1.5" fill="#F7F5EE"/>'
+    '<rect x="42" y="9" width="3" height="6" rx="1.5" fill="#F7F5EE"/>'
+    '</svg><span>Call Paayal</span></a>'
+)
 
 
 def _footer(request: Request) -> str:
@@ -155,8 +301,10 @@ def _base_url(request: Request) -> str:
 def _public(request: Request, title: str, body: str, description: str = "",
             head_extra: str = "") -> HTMLResponse:
     base = _base_url(request)
+    digits = _tel_digits(request)
+    fab = _FAB.format(digits=_esc(digits)) if digits else ""
     return HTMLResponse(_page(
-        title, body, description=description,
+        title, body + fab, description=description,
         nav=_nav(request), footer=_footer(request),
         canonical_url=base + request.url.path,
         head_extra=_ORG_JSONLD + head_extra,
@@ -338,7 +486,7 @@ Paayal can tell you about.</p>
 </ol>
 </section>
 
-<section id="paayal">
+<section id="paayal" class="band">
 <p class=kick>Meet Paayal · <span class="ml" lang="ml">പായൽ</span></p>
 <h2>The voice on the other end</h2>
 <div class="paayal-fig">
@@ -362,26 +510,34 @@ Paayal can tell you about.</p>
     <p>Paayal is Kaayal’s voice assistant — a <b>Malayalam-first</b> voice on the other
     end of the Kaayal phone line. She also speaks English. You talk, she answers;
     there is nothing to install and nothing to type.</p>
-    <h3>What Paayal does</h3>
-    <ul style="padding-left:1.25rem">
-      <li style="margin-bottom:.5rem">Answers questions about boat trips out of Alappuzha,
-          in Malayalam or English.</li>
-      <li style="margin-bottom:.5rem">Describes <b>reviewed</b> boats — capacity, boarding
-          point, amenities, and the operator behind each listing.</li>
-      <li style="margin-bottom:.5rem">Takes booking inquiries: your name, number, preferred
-          date, and group size go to the operator <b>only with your consent</b>.</li>
-      <li>Arranges consented callbacks — if a boat or operator can’t be reached now,
-          she can call you back when they can, through Sarvam’s calling platform.</li>
-    </ul>
-    <h3>What Paayal never does</h3>
-    <ul style="padding-left:1.25rem">
-      <li style="margin-bottom:.5rem"><b>Confirms bookings.</b> Only the operator confirms,
-          by calling you back. Until then nothing is booked.</li>
-      <li style="margin-bottom:.5rem"><b>Confirms prices.</b> Quoted prices come from the
-          operator; Paayal repeats them, she doesn’t guarantee them.</li>
-      <li><b>Takes payments.</b> There is no checkout, no wallet, no card on file —
-          you settle directly with the operator.</li>
-    </ul>
+    <div class=duo>
+      <div>
+        <h3>What Paayal does</h3>
+        <ul style="padding-left:1.25rem">
+          <li style="margin-bottom:.5rem">Answers questions about boat trips out of
+              Alappuzha, in Malayalam or English.</li>
+          <li style="margin-bottom:.5rem">Describes <b>reviewed</b> boats — capacity,
+              boarding point, amenities, and the operator behind each listing.</li>
+          <li style="margin-bottom:.5rem">Takes booking inquiries: your name, number,
+              preferred date, and group size go to the operator <b>only with your
+              consent</b>.</li>
+          <li>Arranges consented callbacks — if a boat or operator can’t be reached
+              now, she can call you back when they can, through Sarvam’s calling
+              platform.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>What Paayal never does</h3>
+        <ul style="padding-left:1.25rem">
+          <li style="margin-bottom:.5rem"><b>Confirms bookings.</b> Only the operator
+              confirms, by calling you back. Until then nothing is booked.</li>
+          <li style="margin-bottom:.5rem"><b>Confirms prices.</b> Quoted prices come
+              from the operator; Paayal repeats them, she doesn’t guarantee them.</li>
+          <li><b>Takes payments.</b> There is no checkout, no wallet, no card on file —
+              you settle directly with the operator.</li>
+        </ul>
+      </div>
+    </div>
   </div>
 </div>
 <h3>Things you can ask her</h3>
@@ -411,7 +567,7 @@ See <a href="#dtpc">the DTPC pre-paid counter</a>.</p>
 <p><a class=btn href="tel:+{_tel_digits(request)}" style="text-decoration:none">Call to send a booking inquiry</a></p>
 </section>
 
-{_CONTOURS}
+{_NETSCAPE}
 
 <section id="explore">
 <p class=kick>Explore Alappuzha</p>
@@ -437,7 +593,9 @@ when they call you back.</p>
 <p><a href="#before-you-book">What to ask before you book →</a></p>
 </section>
 
-<section id="before-you-book">
+{_CANOE}
+
+<section id="before-you-book" class="band">
 <p class=kick>Before you book</p>
 <h2>Five questions worth asking</h2>
 <p class=muted>Before you pay a deposit — the operator’s answers are theirs to give.</p>
@@ -486,7 +644,7 @@ we don’t keep their timings here.</p>
 
 {_CONTOURS}
 
-<section id="faq">
+<section id="faq" class="band">
 <p class=kick>FAQ</p>
 <h2>Straight answers</h2>
 <p class=muted>What Kaayal does, what it doesn’t, and how your call is handled.</p>
@@ -531,15 +689,22 @@ Just links to call or message us.</p>
 <p class=muted small>Questions about your details? Call the Kaayal number and ask.</p>
 </section>
 
-<hr class=rule>
-<p class=muted small><b>For operators.</b> Run a boat out of Alappuzha? Message us on
+<section id="closing" class="band-dark">
+<p class=kick>Kaayal · <span class="ml" lang="ml">കായൽ</span></p>
+<h2 style="font-size:2rem">Talk to the backwaters.</h2>
+<p class=lead style="color:var(--mist)">Call the Kaayal number and talk to Paayal in
+Malayalam or English — leave a booking inquiry, and the operator calls you back
+to confirm. No app, no forms.</p>
+{call_line}
+<p class="muted small"><b>For operators.</b> Run a boat out of Alappuzha? Message us on
 WhatsApp — a human reviews you, then you list your boats once, get booking
 inquiries, and confirm by a call back.</p>
 {operator_cta}
-<p class=muted small>Every listing is reviewed and switched on by the Kaayal owner before
+<p class="muted small">Every listing is reviewed and switched on by the Kaayal owner before
 callers hear about it — that means a person approved it, not a government or
 safety certification. Kaayal never confirms prices, availability, or bookings
 on its own — the operator always does.</p>
+</section>
 """
     return _public(request,
         "Kaayal | Alappuzha boats by phone",

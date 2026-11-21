@@ -183,6 +183,31 @@ details.faq-item p {{ margin: .3rem 0 .8rem 1.5rem; }}
   padding: .06em .12em 0 0; color: var(--lagoon);
 }}
 section > p, section > ul {{ max-width: 42rem; }}
+.duo {{ display: grid; grid-template-columns: 1fr 1fr; gap: 0 2.5rem; }}
+@media (max-width: 700px) {{ .duo {{ grid-template-columns: 1fr; }} }}
+[data-plx] {{ will-change: transform; }}
+/* Section bands — flat tonal slabs with a faint grain texture, no gradients. */
+.band {{
+  background-color: color-mix(in srgb, var(--mist) 42%, var(--ivory));
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.07 0 0 0 0 0.25 0 0 0 0 0.24 0 0 0 0.045 0'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>");
+  margin: 0 -1.25rem; padding: .75rem 1.25rem 2.25rem;
+}}
+.band-dark {{
+  background-color: var(--lagoon); color: var(--ivory);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.97 0 0 0 0 0.96 0 0 0 0 0.93 0 0 0 0.05 0'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>");
+  margin: 0 -1.25rem; padding: .75rem 1.25rem 2.5rem;
+}}
+.band-dark h2, .band-dark h3 {{ color: var(--ivory); }}
+.band-dark .kick {{ color: var(--sand); }}
+.band-dark .muted {{ color: var(--mist); }}
+.band-dark a {{ color: var(--mist); }}
+.band-dark a:hover {{ color: var(--ivory); }}
+.band-dark .btn {{
+  background: var(--ivory); color: var(--lagoon); border-color: var(--ivory);
+}}
+.band-dark .btn:hover {{
+  background: var(--sand); border-color: var(--sand); color: var(--ivory);
+}}
 @media (max-width: 700px) {{
   .hero {{ grid-template-columns: 1fr; }}
   .hero-art {{ text-align: left; }}
@@ -219,21 +244,36 @@ td.actions form.inline button {{ min-height: 2.5rem; padding: .35rem .8rem; font
 .rip2 {{ animation-delay: 1.9s; }}
 .ml {{ font-family: 'Noto Sans Malayalam', {BODY_FONT}; }}
 .topnav {{
-  display: flex; align-items: baseline; gap: 1.15rem; flex-wrap: wrap;
+  display: flex; align-items: baseline; gap: 1.15rem; flex-wrap: nowrap;
+  overflow-x: auto; scrollbar-width: none;
   border-bottom: 1px solid var(--line); padding-bottom: .85rem; margin-bottom: 2.25rem;
   position: sticky; top: 0; z-index: 5; background: var(--ivory); padding-top: .9rem;
 }}
+.topnav::-webkit-scrollbar {{ display: none; }}
 .topnav .wordmark {{
   font-family: {DISPLAY_FONT}; font-size: 1.35rem; color: var(--lagoon);
-  text-decoration: none; margin-right: auto;
+  text-decoration: none; margin-right: auto; white-space: nowrap; flex-shrink: 0;
 }}
 .topnav .wordmark:hover {{ color: var(--teal); }}
-.topnav a.navlink {{ color: var(--ink); text-decoration: none; font-size: .95rem; padding: .45rem 0; }}
+.topnav a.navlink {{
+  color: var(--ink); text-decoration: none; font-size: .95rem; padding: .45rem 0;
+  white-space: nowrap; flex-shrink: 0;
+}}
 .topnav a.navlink:hover {{ color: var(--teal); text-decoration: underline; }}
-.topnav .navcall {{ font-size: .85rem; padding: .35rem .8rem; text-decoration: none; }}
+.fab-call {{
+  position: fixed; right: 1.25rem; z-index: 6;
+  bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+  display: inline-flex; align-items: center; gap: .55rem;
+  background: var(--teal); color: var(--ivory); border: none; border-radius: .25rem;
+  padding: .75rem 1.15rem; font: 600 .95rem/1 {BODY_FONT}; letter-spacing: .01em;
+  text-decoration: none; cursor: pointer;
+  box-shadow: 0 0 0 1.5px var(--ivory), 0 6px 18px rgba(18,63,60,.28);
+}}
+.fab-call:hover {{ background: var(--lagoon); text-decoration: none; }}
+.fab-call .voicewave rect {{ transform-origin: bottom; }}
 .site-footer {{
   border-top: 1px solid var(--line); margin-top: 3rem; padding-top: 1.1rem;
-  font-size: .95rem; color: #4A6B66;
+  font-size: .95rem; color: #4A6B66; padding-bottom: 4.5rem;
 }}
 .chip {{
   display: inline-block; padding: .1rem .55rem; border: 1px solid var(--mist);
@@ -299,32 +339,44 @@ try {
                 {duration: 1.8, delay: i * .12, easing: "ease-in-out"});
       }), {amount: .4});
     });
-    const scene = document.querySelector("svg.scene");
-    if (scene) {
-      scene.querySelectorAll("path").forEach((p, i) => {
-        try {
-          const len = p.getTotalLength();
-          p.style.strokeDasharray = len;
-          animate(p, {strokeDashoffset: [len, 0]},
-                  {duration: 2.4, delay: .15 + i * .09, easing: "ease-in-out"});
-        } catch (e) {}
-      });
+    document.querySelectorAll("svg.scene").forEach((scene, si) => {
+      inView(scene, () => {
+        scene.querySelectorAll("path").forEach((p, i) => {
+          try {
+            const len = p.getTotalLength();
+            p.style.strokeDasharray = len;
+            animate(p, {strokeDashoffset: [len, 0]},
+                    {duration: 2.4, delay: .15 + i * .09, easing: "ease-in-out"});
+          } catch (e) {}
+        });
+      }, {amount: .35});
       scene.querySelectorAll(".waves path").forEach((p, i) =>
         animate(p, {y: [0, i % 2 ? 4 : -4, 0]},
                 {duration: 5.5 + i, delay: i * .5, repeat: Infinity,
                  easing: "ease-in-out"}));
+      scene.querySelectorAll(".reeds path").forEach((p, i) =>
+        animate(p, {x: [0, i % 2 ? 2.5 : -2.5, 0]},
+                {duration: 4.2 + i * .6, delay: i * .3, repeat: Infinity,
+                 easing: "ease-in-out"}));
       const boat = scene.querySelector(".boat");
       if (boat) {
         animate(boat, {x: [0, 26, 0]},
-                {duration: 18, repeat: Infinity, easing: "ease-in-out"});
+                {duration: 18 + si * 4, repeat: Infinity, easing: "ease-in-out"});
         animate(boat, {y: [0, -4, 0]},
                 {duration: 4.6, repeat: Infinity, easing: "ease-in-out"});
+      }
+      const net = scene.querySelector(".net");
+      if (net) {
+        net.style.transformBox = "view-box";
+        net.style.transformOrigin = "452px 58px";
+        animate(net, {rotate: [-.4, .4, -.4]},
+                {duration: 14, repeat: Infinity, easing: "ease-in-out"});
       }
       const birds = scene.querySelector(".birds");
       if (birds)
         animate(birds, {x: [0, -36, 0]},
                 {duration: 22, repeat: Infinity, easing: "ease-in-out"});
-    }
+    });
   }
 } catch (e) { /* decoration only — page is complete without it */ }
 </script>
