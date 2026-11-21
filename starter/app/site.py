@@ -11,8 +11,9 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
-from sqlmodel import Session, select
+from sqlmodel import Session
 
+from app.catalog import listed_boats
 from app.db import Boat, Operator
 from app.ui import esc as _esc, page as _page
 
@@ -260,12 +261,7 @@ _FAQ = [
 def landing(request: Request):
     engine = request.app.state.engine
     with Session(engine) as session:
-        rows = session.exec(
-            select(Boat, Operator)
-            .join(Operator, Boat.operator_id == Operator.id)
-            .where(Boat.active, Boat.verified_at.is_not(None), Operator.active)
-            .order_by(Boat.name)
-        ).all()
+        rows = sorted(listed_boats(session), key=lambda row: row[0].name)
 
     call_line = _call_cta(request)
     wa = request.app.state.settings.kaayal_whatsapp_number

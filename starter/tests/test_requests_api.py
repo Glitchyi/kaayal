@@ -43,11 +43,12 @@ async def client(app):
         yield c
 
 
-def seed_boat(app, *, verified=True, active=True, available=True, reachable=True):
+def seed_boat(app, *, verified=True, active=True, available=True,
+              reachable=True, op_active=True):
     with Session(app.state.engine) as s:
         op = Operator(name="Test Op", phone="+910000000001",
                       token_hash=hash_token("t"), approved_at=utcnow(),
-                      reachable=reachable)
+                      active=op_active, reachable=reachable)
         s.add(op)
         s.commit()
         s.refresh(op)
@@ -71,6 +72,16 @@ async def test_request_rejects_inactive_boat(client, app):
     _, boat_id = seed_boat(app, active=False)
     r = await client.post("/api/voice/request", json={**BASE_REQ, "boat_id": boat_id})
     assert r.json()["status"] == "rejected"
+
+
+async def test_request_rejects_boat_of_inactive_operator(client, app):
+    # Deactivated operator's verified boats are unlisted; a stale boat_id
+    # must not create an inquiry or ping the operator.
+    _, boat_id = seed_boat(app, op_active=False)
+    r = await client.post("/api/voice/request", json={**BASE_REQ, "boat_id": boat_id})
+    assert r.json()["status"] == "rejected"
+    with Session(app.state.engine) as s:
+        assert s.exec(select(BookingRequest)).all() == []
 
 
 async def test_request_public_id_format_and_stored_row(client, app):
@@ -170,6 +181,15 @@ async def test_callback_opt_out_with_nothing_scheduled(client):
                           json={**BASE_CB, "consent_given": False})
     assert r.status_code == 200
     assert r.json()["status"] == "rejected"
+
+
+async def test_callback_rejects_boat_of_inactive_operator(client, app):
+    _, boat_id = seed_boat(app, op_active=False)
+    r = await client.post("/api/voice/callback",
+                          json={**BASE_CB, "boat_id": boat_id})
+    assert r.json()["status"] == "rejected"
+    with Session(app.state.engine) as s:
+        assert s.exec(select(CallbackRequest)).all() == []
 
 
 async def test_callback_links_operator_from_boat(client, app):

@@ -8,7 +8,7 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import Session, select
 
-from app.callbacks import ACTIVE as _CB_ACTIVE, MAX_ATTEMPTS as _CB_MAX_ATTEMPTS, process_due_callbacks
+from app.callbacks import ACTIVE as _CB_ACTIVE, MAX_ATTEMPTS as _CB_MAX_ATTEMPTS, fire_boat_available, process_due_callbacks
 from app.db import Boat, BookingRequest, CallbackAttempt, CallbackRequest, Operator, utcnow
 from app.portal import hash_token, new_token
 from app.ui import esc as _esc, page as _page, status_badge as _status_badge
@@ -228,6 +228,13 @@ def verify_boat(boat_id: int, request: Request, t: str | None = None):
         boat.verified_at = utcnow()
         boat.source = "owner-verified"
         boat.updated_at = utcnow()
+        # Verification makes the boat listed; if it's also bookable now,
+        # parked no_availability callbacks should fire just like an
+        # availability toggle in the portal.
+        if boat.active and boat.available:
+            op = session.get(Operator, boat.operator_id)
+            if op and op.active:
+                fire_boat_available(session, boat)
         session.commit()
     return RedirectResponse(f"/admin?t={t}", status_code=303)
 

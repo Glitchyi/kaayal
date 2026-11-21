@@ -33,6 +33,23 @@ class BoatListOut(BaseModel):
     boats: list[BoatOut]
 
 
+def _listed():
+    """Boats callers may see AND book: verified, active, active operator."""
+    return (
+        select(Boat, Operator)
+        .join(Operator, Boat.operator_id == Operator.id)
+        .where(Boat.active, Boat.verified_at.is_not(None), Operator.active)
+    )
+
+
+def listed_boats(session: Session) -> list[tuple[Boat, Operator]]:
+    return session.exec(_listed()).all()
+
+
+def listed_boat(session: Session, boat_id: int) -> tuple[Boat, Operator] | None:
+    return session.exec(_listed().where(Boat.id == boat_id)).first()
+
+
 def _to_out(boat: Boat, op: Operator) -> BoatOut:
     return BoatOut(
         id=boat.id,
@@ -53,12 +70,7 @@ def _to_out(boat: Boat, op: Operator) -> BoatOut:
 def list_boats(request: Request, q: str | None = None):
     engine = request.app.state.engine
     with Session(engine) as session:
-        stmt = (
-            select(Boat, Operator)
-            .join(Operator, Boat.operator_id == Operator.id)
-            .where(Boat.active, Boat.verified_at.is_not(None), Operator.active)
-        )
-        rows = session.exec(stmt).all()
+        rows = listed_boats(session)
     boats = [_to_out(b, op) for b, op in rows]
     if q:
         needle = q.casefold()
@@ -84,16 +96,7 @@ def list_boats(request: Request, q: str | None = None):
 def get_boat(boat_id: int, request: Request):
     engine = request.app.state.engine
     with Session(engine) as session:
-        row = session.exec(
-            select(Boat, Operator)
-            .join(Operator, Boat.operator_id == Operator.id)
-            .where(
-                Boat.id == boat_id,
-                Boat.active,
-                Boat.verified_at.is_not(None),
-                Operator.active,
-            )
-        ).first()
+        row = listed_boat(session, boat_id)
     if not row:
         from fastapi import HTTPException
 

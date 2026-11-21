@@ -49,6 +49,12 @@ class RateLimiter:
             return self._count <= self.per_minute
 
 
+def _scrub_stale_pii(engine) -> int:
+    """PII retention runs on the maintenance tick, not just at boot."""
+    with Session(engine) as session:
+        return anonymize_stale_requests(session)
+
+
 def _error(status: int, code: str, trace_id: str | None = None) -> JSONResponse:
     body = {"detail": code}
     if trace_id:
@@ -75,6 +81,11 @@ def create_app(settings: Settings | None = None, responder=None) -> FastAPI:
                     )
                     if n:
                         logger.info("callback_engine attempts=%d", n)
+                    anonymized = await asyncio.to_thread(
+                        _scrub_stale_pii, app.state.engine
+                    )
+                    if anonymized:
+                        logger.info("pii_anonymization anonymized=%d", anonymized)
                 except Exception:
                     logger.exception("callback_engine tick failed")
 

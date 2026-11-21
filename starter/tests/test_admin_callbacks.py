@@ -257,3 +257,39 @@ async def test_demo_clear_removes_demo_rows_and_children(app, client):
         assert s.exec(select(Boat).where(Boat.source == "demo-seed")).all() == []
         assert s.exec(select(BookingRequest).where(BookingRequest.public_id == "REQ-DEMO-1")).all() == []
         assert s.exec(select(CallbackRequest).where(CallbackRequest.public_id == "CB-DEMO-1")).all() == []
+
+
+async def test_verify_boat_fires_parked_no_availability_callback(app, client):
+    # Verifying a boat makes it listed; when it's also bookable the parked
+    # no_availability callback must requeue like an availability toggle.
+    op = seed_operator(app)
+    with Session(app.state.engine) as s:
+        boat = Boat(operator_id=op.id, name="Lake Queen",
+                    available=True, active=True, verified_at=None)
+        s.add(boat)
+        s.commit()
+        s.refresh(boat)
+    cb = seed_callback(app, reason="no_availability", boat_id=boat.id)
+
+    r = await client.post(f"/admin/boats/{boat.id}/verify?t={ADMIN}",
+                          follow_redirects=False)
+    assert r.status_code == 303
+    with Session(app.state.engine) as s:
+        assert s.get(CallbackRequest, cb.id).trigger_seq == 1
+
+
+async def test_verify_unavailable_boat_does_not_fire(app, client):
+    op = seed_operator(app)
+    with Session(app.state.engine) as s:
+        boat = Boat(operator_id=op.id, name="Lake Queen",
+                    available=False, active=True, verified_at=None)
+        s.add(boat)
+        s.commit()
+        s.refresh(boat)
+    cb = seed_callback(app, reason="no_availability", boat_id=boat.id)
+
+    r = await client.post(f"/admin/boats/{boat.id}/verify?t={ADMIN}",
+                          follow_redirects=False)
+    assert r.status_code == 303
+    with Session(app.state.engine) as s:
+        assert s.get(CallbackRequest, cb.id).trigger_seq == 0

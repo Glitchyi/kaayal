@@ -12,7 +12,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlmodel import Session, func, select
 
 from app.callbacks import create_callback, opt_out_phone
-from app.db import Boat, BookingRequest, Operator
+from app.catalog import listed_boat
+from app.db import BookingRequest
 from app.wa_notify import notify_booking_request
 
 router = APIRouter(prefix="/api/voice", tags=["voice-requests"])
@@ -70,27 +71,27 @@ def create_booking_request(payload: CreateRequestIn, request: Request):
     notify_boat = None
     with Session(engine) as session:
         if payload.boat_id is not None:
-            boat = session.get(Boat, payload.boat_id)
-            if not boat or not boat.active or boat.verified_at is None:
+            row = listed_boat(session, payload.boat_id)
+            if not row:
                 return CreateRequestOut(
                     request_id="",
                     status="rejected",
                     message="That boat isn't listed; I can take a general request instead.",
                 )
+            boat, op = row
             if not boat.available:
                 return CreateRequestOut(
                     request_id="",
                     status="unavailable",
                     message="That boat isn't available right now. I can arrange a callback when it is — shall I take your number?",
                 )
-            op = session.get(Operator, boat.operator_id)
-            if op and not op.reachable:
+            if not op.reachable:
                 return CreateRequestOut(
                     request_id="",
                     status="unreachable",
                     message="That operator can't be reached right now. I can call you back when they're reachable — shall I take your number?",
                 )
-            if op and op.phone:
+            if op.phone:
                 notify_phone = op.phone
                 notify_boat = boat.name
         req = BookingRequest(
@@ -168,13 +169,14 @@ def create_callback_request(payload: CreateCallbackIn, request: Request):
     with Session(engine) as session:
         operator_id = None
         if payload.boat_id is not None:
-            boat = session.get(Boat, payload.boat_id)
-            if not boat or not boat.active or boat.verified_at is None:
+            row = listed_boat(session, payload.boat_id)
+            if not row:
                 return CreateRequestOut(
                     request_id="", status="rejected",
                     message="That boat isn't listed; I can take a general callback instead.",
                 )
-            operator_id = boat.operator_id
+            boat, op = row
+            operator_id = op.id
         cb = create_callback(
             session,
             customer_name=payload.customer_name,
