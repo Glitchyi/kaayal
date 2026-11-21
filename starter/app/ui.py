@@ -71,6 +71,7 @@ body.wide {{ max-width: 62rem; }}
   background: var(--lagoon); color: var(--ivory); padding: .5rem 1rem; z-index: 10;
 }}
 .skip:focus {{ left: 0; }}
+.skip:hover, .skip:focus {{ color: var(--ivory); }}
 h1, h2, h3 {{ font-family: {DISPLAY_FONT}; color: var(--lagoon); text-wrap: balance; line-height: 1.15; }}
 h1 {{ font-size: 2.25rem; font-weight: 500; margin: 0 0 .5rem; }}
 h2 {{ font-size: 1.35rem; font-weight: 500; margin: 2.5rem 0 .75rem; }}
@@ -99,7 +100,7 @@ input, select {{
   padding: .55rem .7rem; width: 100%; max-width: 26rem;
   touch-action: manipulation;
 }}
-input::placeholder {{ color: #6E857E; }}
+input::placeholder {{ color: #4A6B66; }}
 button, .btn {{
   font: inherit; font-weight: 500; font-size: .95rem; cursor: pointer;
   background: var(--teal); color: var(--ivory);
@@ -130,8 +131,8 @@ button.danger:hover {{ background: #F3E3E1; color: #7A2E2E; border-color: #7A2E2
 ol ::marker {{ color: var(--teal); font-family: {DISPLAY_FONT}; }}
 .lead {{ font-size: 1.15rem; max-width: 34rem; }}
 .kick {{
-  letter-spacing: .14em; text-transform: uppercase; font-size: .72rem;
-  font-weight: 600; color: #8A5F33; margin: 0 0 .2rem;
+  font-family: {DISPLAY_FONT}; font-style: italic; font-weight: 500;
+  font-size: 1.05rem; color: #8A5F33; margin: 0 0 .2rem;
 }}
 /* --- editorial landing ---------------------------------------------------- */
 .hero {{ display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 1.5rem 3rem; align-items: center; }}
@@ -182,10 +183,22 @@ details.faq-item p {{ margin: .3rem 0 .8rem 1.5rem; }}
   font-family: {DISPLAY_FONT}; font-size: 3.1em; float: left; line-height: .82;
   padding: .06em .12em 0 0; color: var(--lagoon);
 }}
-section > p, section > ul {{ max-width: 42rem; }}
+section > p, section > ul {{ max-width: 38rem; }}
+section > p.small {{ max-width: 33rem; }}
+p.dropcap {{ max-width: 34rem; }}
+.paayal-fig > div > p {{ max-width: 38rem; }}
+p, li {{ text-wrap: pretty; }}
+a.ask {{ display: block; text-decoration: none; }}
+a.ask:hover {{ color: var(--teal); border-left-color: var(--teal); }}
+.band a:not(.btn) {{ color: color-mix(in srgb, var(--teal) 60%, var(--lagoon)); }}
 .duo {{ display: grid; grid-template-columns: 1fr 1fr; gap: 0 2.5rem; }}
 @media (max-width: 700px) {{ .duo {{ grid-template-columns: 1fr; }} }}
-[data-plx] {{ will-change: transform; }}
+@media (max-width: 700px) {{
+  .tablewrap th.actions, .tablewrap td.actions {{
+    position: sticky; right: 0; background: var(--ivory);
+    box-shadow: -6px 0 6px -3px rgba(18, 63, 60, .18);
+  }}
+}}
 /* Section bands — flat tonal slabs with a faint grain texture, no gradients. */
 .band {{
   background-color: color-mix(in srgb, var(--mist) 42%, var(--ivory));
@@ -198,7 +211,7 @@ section > p, section > ul {{ max-width: 42rem; }}
   margin: 0 -1.25rem; padding: .75rem 1.25rem 2.5rem;
 }}
 .band-dark h2, .band-dark h3 {{ color: var(--ivory); }}
-.band-dark .kick {{ color: var(--sand); }}
+.band-dark .kick {{ color: color-mix(in srgb, var(--sand) 60%, var(--ivory)); }}
 .band-dark .muted {{ color: var(--mist); }}
 .band-dark a {{ color: var(--mist); }}
 .band-dark a:hover {{ color: var(--ivory); }}
@@ -216,10 +229,10 @@ section > p, section > ul {{ max-width: 42rem; }}
   .paayal-portrait .voicewave {{ margin-left: 0; }}
 }}
 @media (max-width: 640px) {{
-  .topnav {{ flex-wrap: nowrap; overflow-x: auto; gap: .95rem; scrollbar-width: none; }}
-  .topnav::-webkit-scrollbar {{ display: none; }}
+  .topnav {{ flex-wrap: wrap; overflow-x: clip; gap: .5rem .95rem; }}
   .topnav .wordmark {{ font-size: 1.2rem; }}
   .topnav a.navlink {{ white-space: nowrap; }}
+  section[id] {{ scroll-margin-top: 7.5rem; }}
 }}
 html {{ scroll-behavior: smooth; }}
 section[id] {{ scroll-margin-top: 5.5rem; margin-top: 3.25rem; }}
@@ -227,21 +240,8 @@ h2[id] {{ scroll-margin-top: 4.5rem; }}
 td.actions, th.actions {{ white-space: nowrap; text-align: right; }}
 .tablewrap td {{ vertical-align: middle; }}
 td.actions form.inline button {{ min-height: 2.5rem; padding: .35rem .8rem; font-size: .85rem; margin: .1rem .3rem .1rem 0; }}
-@keyframes ping {{
-  0% {{ box-shadow: 0 0 0 0 rgba(38, 122, 115, .32); }}
-  100% {{ box-shadow: 0 0 0 20px rgba(38, 122, 115, 0); }}
-}}
-.sonar {{ animation: ping 2.8s ease-out infinite; }}
-.sonar:hover {{ animation-play-state: paused; }}
-@keyframes ripple {{
-  0% {{ transform: scale(.75); opacity: .55; }}
-  100% {{ transform: scale(1.7); opacity: 0; }}
-}}
-.rip {{
-  transform-box: fill-box; transform-origin: center; opacity: 0;
-  animation: ripple 3.8s ease-out infinite;
-}}
-.rip2 {{ animation-delay: 1.9s; }}
+.rip {{ transform-box: fill-box; transform-origin: center; opacity: .3; }}
+.rip2 {{ opacity: .15; }}
 .ml {{ font-family: 'Noto Sans Malayalam', {BODY_FONT}; }}
 .topnav {{
   display: flex; align-items: baseline; gap: 1.15rem; flex-wrap: nowrap;
@@ -275,6 +275,7 @@ td.actions form.inline button {{ min-height: 2.5rem; padding: .35rem .8rem; font
   border-top: 1px solid var(--line); margin-top: 3rem; padding-top: 1.1rem;
   font-size: .95rem; color: #4A6B66; padding-bottom: 4.5rem;
 }}
+.site-footer p {{ max-width: 33rem; }}
 .chip {{
   display: inline-block; padding: .1rem .55rem; border: 1px solid var(--mist);
   border-radius: 999px; font-size: .8rem; color: var(--lagoon); margin: .1rem .15rem .1rem 0;
@@ -319,19 +320,8 @@ try {
       if (d) scroll(animate(el, {y: [d * 55, -d * 55]}),
                     {target: el, offset: ["start end", "end start"]});
     });
-    // Paayal: gentle container float + decorative waveform bars (container only —
-    // the illustration itself is untouched).
-    const med = document.querySelector(".avatar-wrap");
-    if (med) animate(med, {y: [0, -5, 0]}, {duration: 5, repeat: Infinity, easing: "ease-in-out"});
-    document.querySelectorAll(".voicewave rect").forEach((b, i) =>
-      animate(b, {scaleY: [.35, 1, .35]},
-              {duration: 1.3 + i * .07, repeat: Infinity, easing: "ease-in-out"}));
     document.querySelectorAll("svg.contours").forEach((svg) => {
       const paths = svg.querySelectorAll("path");
-      paths.forEach((p, i) =>
-        animate(p, {y: [0, i % 2 ? 5 : -5, 0]},
-                {duration: 6 + i * 1.1, delay: i * .4, repeat: Infinity,
-                 easing: "ease-in-out"}));
       inView(svg, () => paths.forEach((p, i) => {
         const len = p.getTotalLength();
         p.style.strokeDasharray = len;
@@ -350,32 +340,6 @@ try {
           } catch (e) {}
         });
       }, {amount: .35});
-      scene.querySelectorAll(".waves path").forEach((p, i) =>
-        animate(p, {y: [0, i % 2 ? 4 : -4, 0]},
-                {duration: 5.5 + i, delay: i * .5, repeat: Infinity,
-                 easing: "ease-in-out"}));
-      scene.querySelectorAll(".reeds path").forEach((p, i) =>
-        animate(p, {x: [0, i % 2 ? 2.5 : -2.5, 0]},
-                {duration: 4.2 + i * .6, delay: i * .3, repeat: Infinity,
-                 easing: "ease-in-out"}));
-      const boat = scene.querySelector(".boat");
-      if (boat) {
-        animate(boat, {x: [0, 26, 0]},
-                {duration: 18 + si * 4, repeat: Infinity, easing: "ease-in-out"});
-        animate(boat, {y: [0, -4, 0]},
-                {duration: 4.6, repeat: Infinity, easing: "ease-in-out"});
-      }
-      const net = scene.querySelector(".net");
-      if (net) {
-        net.style.transformBox = "view-box";
-        net.style.transformOrigin = "452px 58px";
-        animate(net, {rotate: [-.4, .4, -.4]},
-                {duration: 14, repeat: Infinity, easing: "ease-in-out"});
-      }
-      const birds = scene.querySelector(".birds");
-      if (birds)
-        animate(birds, {x: [0, -36, 0]},
-                {duration: 22, repeat: Infinity, easing: "ease-in-out"});
     });
   }
 } catch (e) { /* decoration only — page is complete without it */ }

@@ -232,7 +232,7 @@ async def test_demo_seed_creates_labeled_rows_idempotently(app, client):
     assert monsoon.reachable is False and monsoon.approved_at is not None
     page = await client.get(f"/admin?t={ADMIN}")
     assert "Backwater Demo Cruises (DEMO)" in page.text
-    assert "demo-seed" in page.text
+    assert ">demo<" in page.text  # demo-seed source renders as the friendly label
 
 
 async def test_demo_clear_removes_demo_rows_and_children(app, client):

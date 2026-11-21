@@ -11,7 +11,7 @@ All components are server-rendered HTML. Shared tokens/styles: `app/ui.py` (sing
 | `brand_header(tagline)` | Kaayal wordmark header | use on public-facing pages |
 
 ## CSS classes
-`.card` (sand-spine container) · `.badge`/`.ok`/`.wait`/`.bad` · `.muted` `.small` · `.rule` · `.ml` (Malayalam text) · `button.secondary` `button.danger` · `.skip` · `.btn`
+`.card` (sand-spine container) · `.badge`/`.ok`/`.wait`/`.bad` · `.muted` `.small` · `.rule` · `.ml` (Malayalam text) · `button.secondary` `button.danger` · `.skip` · `.btn` · `.kick` (italic Fraunces section marker) · `.ask` (tel: question rows on the landing page) · `.notice` `.error-box` · `.tablewrap` (horizontal scroll; `td.actions` sticky on ≤700px)
 
 ## Surfaces
 | Route | File | Purpose |

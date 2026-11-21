@@ -139,8 +139,8 @@ def dashboard(token: str, request: Request):
 <p class=muted>Your Kaayal operator dashboard.</p>
 {reach_card}
 <h2>Your boats</h2>
-<table><thead><tr><th>Name</th><th>Capacity</th><th>Embarkation</th><th>Price</th><th>Amenities</th><th>Status</th><th>Available</th><th></th></tr></thead>
-<tbody>{rows}</tbody></table>
+<div class=tablewrap><table><thead><tr><th>Name</th><th>Capacity</th><th>Embarkation</th><th>Price</th><th>Amenities</th><th>Status</th><th>Available</th><th></th></tr></thead>
+<tbody>{rows}</tbody></table></div>
 <div class=card>
 <h3>Add a boat</h3>
 <form method=post action='/portal/{token}/boats'>

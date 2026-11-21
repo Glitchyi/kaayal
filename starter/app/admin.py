@@ -39,7 +39,7 @@ def _admin_nav() -> str:
 # Friendly labels for machine `source` values — rendered as muted text,
 # not badges (badges are reserved for product status).
 _SRC = {
-    "admin": "admin", "wa-demo": "whatsapp",
+    "admin": "admin", "wa-demo": "whatsapp", "demo-seed": "demo",
     "operator-submitted": "operator", "owner-verified": "owner",
     "voice": "call", "callback": "callback",
 }
@@ -103,8 +103,9 @@ def _op_row(o: Operator, t: str) -> str:
             f"<button class=secondary>Reissue link</button></form>"
         )
     verb, label, cls = ("deactivate", "Deactivate", "danger") if o.active else ("reactivate", "Reactivate", "secondary")
+    guard = " onsubmit='return confirm(\"Deactivate this operator? Their portal link stops working until you reactivate.\")'" if verb == "deactivate" else ""
     actions.append(
-        f"<form class=inline method=post action='/admin/operators/{o.id}/{verb}?t={t}'>"
+        f"<form class=inline method=post action='/admin/operators/{o.id}/{verb}?t={t}'{guard}>"
         f"<button class={cls}>{label}</button></form>"
     )
     return (
@@ -120,7 +121,8 @@ def _cb_rows(cbs: list[CallbackRequest], attempts: dict[int, list[CallbackAttemp
         actions = ""
         if cb.status in _CB_ACTIVE:
             actions = (
-                f"<form class=inline method=post action='/admin/callbacks/{cb.id}/cancel?t={t}'>"
+                f"<form class=inline method=post action='/admin/callbacks/{cb.id}/cancel?t={t}'"
+                f" onsubmit='return confirm(\"Cancel this callback? The customer will not be rung back.\")'>"
                 f"<button class=danger>Cancel</button></form>"
             )
         out.append(
@@ -138,7 +140,8 @@ def _cb_rows(cbs: list[CallbackRequest], attempts: dict[int, list[CallbackAttemp
                 for a in att
             )
             out.append(f"<tr><td colspan=8><ul class='muted small' style='margin:.2rem 0 .6rem'>{items}</ul></td></tr>")
-    return "".join(out) or "<tr><td colspan=8>No callbacks.</td></tr>"
+    return "".join(out) or ("<tr><td colspan=8 class='muted small'>No callbacks queued — "
+                            "Paayal adds one only after the caller agrees.</td></tr>")
 
 
 @router.get("", response_class=HTMLResponse)
@@ -154,7 +157,8 @@ def admin_home(request: Request, t: str | None = None, done: str | None = None):
         for a in session.exec(select(CallbackAttempt).order_by(CallbackAttempt.attempted_at)).all():
             attempts_by_cb.setdefault(a.callback_id, []).append(a)
 
-    op_rows = "".join(_op_row(o, t) for o in operators) or "<tr><td colspan=6>No operators yet.</td></tr>"
+    op_rows = "".join(_op_row(o, t) for o in operators) or ("<tr><td colspan=6 class='muted small'>"
+        "No operators yet — add one below to get a portal link.</td></tr>")
 
     boat_rows = "".join(
         f"<tr><td>{b.id}</td><td>{_esc(b.name)}</td>"
@@ -165,7 +169,7 @@ def admin_home(request: Request, t: str | None = None, done: str | None = None):
         f"<td>{_status_badge('verified') if b.verified_at else _status_badge('unverified')}</td>"
         f"<td class=actions>{'' if b.verified_at else f'<form class=inline method=post action=/admin/boats/{b.id}/verify?t={t}><button>Verify</button></form>'}</td></tr>"
         for b, op in boats
-    ) or "<tr><td colspan=8>No boats.</td></tr>"
+    ) or "<tr><td colspan=8 class='muted small'>No boats yet — operators add them from their portal page.</td></tr>"
 
     def _req_row(r: BookingRequest) -> str:
         boat = f"boat #{r.boat_id}" if r.boat_id else '<span class="muted small">— triage</span>'
@@ -178,7 +182,8 @@ def admin_home(request: Request, t: str | None = None, done: str | None = None):
             f"<td>{_status_badge(r.status)}</td></tr>"
         )
 
-    req_rows = "".join(_req_row(r) for r in requests) or "<tr><td colspan=8>No requests.</td></tr>"
+    req_rows = "".join(_req_row(r) for r in requests) or ("<tr><td colspan=8 class='muted small'>"
+        "No booking inquiries yet — they land here after a caller talks to Paayal.</td></tr>")
 
     cb_rows = _cb_rows(cbs, attempts_by_cb, t)
 
@@ -220,18 +225,18 @@ def admin_home(request: Request, t: str | None = None, done: str | None = None):
 </form>
 </div>
 <h2 id="boats">Boats</h2>
-<div class=tablewrap><table><thead><tr><th>#</th><th>Name</th><th>Type</th><th>Boarding</th><th>Operator</th><th>Booking</th><th>Status</th><th class=actions>Actions</th></tr></thead><tbody>{boat_rows}</tbody></table></div>
+<div class=tablewrap><table><thead><tr><th>#</th><th>Name</th><th>Type</th><th>Boarding</th><th>Operator</th><th>Availability</th><th>Status</th><th class=actions>Actions</th></tr></thead><tbody>{boat_rows}</tbody></table></div>
 <h2 id="requests">All booking requests</h2>
 <div class=tablewrap><table><thead><tr><th>ID</th><th>Customer</th><th>Boat</th><th>Date</th><th>Group</th><th>Source</th><th>Operator note</th><th>Status</th></tr></thead><tbody>{req_rows}</tbody></table></div>
 <h2 id="callbacks">Callbacks</h2>
 <p class=muted>Customers Paayal rings back — calls go out 09:00–18:00 IST, max {_CB_MAX_ATTEMPTS} tries per trigger.</p>
-<form class=inline method=post action='/admin/callbacks/run_due?t={t}'><button class=secondary>Run due callbacks now</button></form>
+<form class=inline method=post action='/admin/callbacks/run_due?t={t}' onsubmit='return confirm("Run due callbacks now? Queued customers may receive calls.")'><button class=secondary>Run due callbacks now</button></form>
 <div class=tablewrap><table><thead><tr><th>ID</th><th>Customer</th><th>Reason</th><th>Status</th><th>Tries</th><th>Next attempt</th><th>Expires</th><th class=actions>Actions</th></tr></thead><tbody>{cb_rows}</tbody></table></div>
 <h2 id="demo">Demo data</h2>
 <div class=card>
-<p class="muted small">Clearly-labeled demo inventory for walkthroughs. Seeding is idempotent; clearing removes the demo rows and their requests/callbacks.</p>
+<p class="muted small">Clearly-labeled demo inventory for walkthroughs. Seeding adds the same demo rows every time — safe to run twice. Clearing removes them, along with their requests and callbacks.</p>
 <form class=inline method=post action='/admin/demo/seed?t={t}'><button class=secondary>Seed demo data</button></form>
-<form class=inline method=post action='/admin/demo/clear?t={t}'><button class=danger>Clear demo data</button></form>
+<form class=inline method=post action='/admin/demo/clear?t={t}' onsubmit='return confirm("Clear demo data? This removes demo operators, boats, requests, and callbacks.")'><button class=danger>Clear demo data</button></form>
 </div>
 """
     return HTMLResponse(_page("Kaayal admin", body, description="Kaayal owner admin", nav=_admin_nav(), body_class="wide"))

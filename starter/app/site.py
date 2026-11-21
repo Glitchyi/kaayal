@@ -318,14 +318,13 @@ def _tel_digits(request: Request) -> str:
     return re.sub(r"\D", "", phone)
 
 
-def _call_cta(request: Request, sonar: bool = True) -> str:
+def _call_cta(request: Request) -> str:
     phone = request.app.state.settings.kaayal_phone_number
     if not phone:
         return '<p class="muted" style="margin-top:1.25rem">Call the Kaayal number to talk to Paayal.</p>'
     digits = re.sub(r"\D", "", phone)
-    cls = "btn sonar" if sonar else "btn"
     return (
-        f'<p class="call_line" style="margin-top:1.25rem"><a class="{cls}" href="tel:+{_esc(digits)}" '
+        f'<p class="call_line" style="margin-top:1.25rem"><a class="btn" href="tel:+{_esc(digits)}" '
         f'style="text-decoration:none">Call {_esc(phone)}</a></p>'
     )
 
@@ -415,6 +414,28 @@ def landing(request: Request):
         rows = sorted(listed_boats(session), key=lambda row: row[0].name)
 
     call_line = _call_cta(request)
+    digits = _tel_digits(request)
+    asks = "".join(
+        (f'<a class=ask href="tel:+{_esc(digits)}">{q}</a>' if digits
+         else f'<p class=ask>{q}</p>')
+        for q in (
+            "“What boats go out of Alappuzha this weekend?”",
+            "“Is anything available for six people on Saturday?”",
+            "“What should I check before I book a houseboat?”",
+            "“Call me back when that boat is free.”",
+        )
+    )
+    demo_note = (
+        '<p class="muted small">Boats badged <span class="badge wait">DEMO</span> '
+        'are seeded walkthrough inventory — stand-ins so you can see the list, '
+        'not real boats.</p>'
+        if any(b.source == "demo-seed" for b, _ in rows) else ""
+    )
+    dtpc_cta = (
+        '<p class="muted">Prefer to just talk it through? '
+        f'<a href="tel:+{_esc(digits)}">Call Paayal</a> — no app, no forms.</p>'
+        if digits else ""
+    )
     wa = request.app.state.settings.kaayal_whatsapp_number
     wa_digits = re.sub(r"\D", "", wa or "")
     operator_cta = (
@@ -464,7 +485,7 @@ def landing(request: Request):
 Paayal can tell you about.</p>
 </div>
 <figure class="hero-art" data-plx="0.45">
-  <span class="avatar-wrap"><img src="/static/paayal.png" alt="Paayal — Kaayal’s voice assistant" width="172" height="172"></span>
+  <span class="avatar-wrap"><picture><source srcset="/static/paayal.webp" type="image/webp"><img src="/static/paayal.png" alt="Paayal — Kaayal’s voice assistant" width="172" height="172"></picture></span>
   <figcaption class="muted small">Paayal answers — Malayalam first, English too.</figcaption>
 </figure>
 </div>
@@ -491,7 +512,7 @@ Paayal can tell you about.</p>
 <h2>The voice on the other end</h2>
 <div class="paayal-fig">
   <div class="paayal-portrait">
-    <span class="avatar-wrap"><img src="/static/paayal.png" alt="" width="184" height="184"></span>
+    <span class="avatar-wrap"><picture><source srcset="/static/paayal.webp" type="image/webp"><img src="/static/paayal.png" alt="" width="184" height="184"></picture></span>
     <svg class="voicewave" width="46" height="24" viewBox="0 0 46 24" aria-hidden="true">
       <rect x="0" y="8" width="3" height="8" rx="1.5" fill="#267A73"/>
       <rect x="5" y="4" width="3" height="16" rx="1.5" fill="#267A73"/>
@@ -542,10 +563,7 @@ Paayal can tell you about.</p>
 </div>
 <h3>Things you can ask her</h3>
 <div class="asks">
-  <p class=ask>“What boats go out of Alappuzha this weekend?”</p>
-  <p class=ask>“Is anything available for six people on Saturday?”</p>
-  <p class=ask>“What should I check before I book a houseboat?”</p>
-  <p class=ask>“Call me back when that boat is free.”</p>
+  {asks}
 </div>
 <p class=muted small>Paayal shares your name and number with an operator only after
 you say yes on the call. Say no, and nothing is shared.
@@ -559,12 +577,13 @@ you say yes on the call. Say no, and nothing is shared.
 of Alappuzha. Availability and prices come from the operators themselves —
 the operator confirms both on the call back.</p>
 {boats}
+{demo_note}
 <p class="muted small">Every listing here is reviewed by the Kaayal owner —
 a person, not a government or safety certification.
 <b>Paayal never confirms bookings</b> — after you inquire, the operator calls you
 back and confirms the trip and the price themselves. Prefer an official counter?
 See <a href="#dtpc">the DTPC pre-paid counter</a>.</p>
-<p><a class=btn href="tel:+{_tel_digits(request)}" style="text-decoration:none">Call to send a booking inquiry</a></p>
+{call_line}
 </section>
 
 {_NETSCAPE}
@@ -640,6 +659,7 @@ want a fixed, government-run option rather than calling operators yourself.</p>
 <p class=muted>Counter details — timings, rates, and how the allotment works —
 change over time. <b>Confirm current details with DTPC</b> before you travel;
 we don’t keep their timings here.</p>
+{dtpc_cta}
 </section>
 
 {_CONTOURS}
