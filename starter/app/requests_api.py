@@ -13,7 +13,7 @@ from sqlmodel import Session, func, select
 
 from app.callbacks import create_callback, opt_out_phone
 from app.catalog import listed_boat
-from app.db import BookingRequest
+from app.db import Boat, BookingRequest, CallbackRequest
 from app.wa_notify import notify_booking_request
 
 router = APIRouter(prefix="/api/voice", tags=["voice-requests"])
@@ -194,3 +194,62 @@ def create_callback_request(payload: CreateCallbackIn, request: Request):
         status="queued",
         message="Noted — I'll call you back when that changes. Kaayal will only call for this reason.",
     )
+
+
+# ---------------------------------------------------------------------------
+# Caller context — Paayal passes the caller's number and gets back who they
+# are: name, open requests, active callbacks. Lets a returning caller be
+# greeted by name and referred to their REQ-/CB- ids instead of starting cold.
+# ---------------------------------------------------------------------------
+
+class CallerContextIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    customer_phone: str = Field(min_length=6, max_length=25)
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def _empty_str_to_none(cls, v):
+        return None if v == "" else v
+
+
+def _last10(phone: str) -> str:
+    return re.sub(r"\D", "", phone)[-10:]
+
+
+@router.post("/caller_context")
+def caller_context(payload: CallerContextIn, request: Request):
+    """Read-only lookup by caller number. Returns summaries only — never
+    other customers' details, never full phone numbers back."""
+    if not _PHONE_RE.match(payload.customer_phone):
+        return {"known": False, "message": "That number doesn't look valid."}
+    want = _last10(payload.customer_phone)
+    engine = request.app.state.engine
+    with Session(engine) as session:
+        reqs = [
+            r for r in session.exec(select(BookingRequest)).all()
+            if _last10(r.customer_phone) == want and r.anonymized_at is None
+        ]
+        cbs = [
+            c for c in session.exec(select(CallbackRequest)).all()
+            if _last10(c.customer_phone) == want
+        ]
+        if not reqs and not cbs:
+            return {"known": False, "message": "New caller — no history on this number."}
+        name = next((r.customer_name for r in reqs if r.customer_name),
+                    next((c.customer_name for c in cbs if c.customer_name), ""))
+        return {
+            "known": True,
+            "customer_name": name,
+            "requests": [
+                {"request_id": r.public_id, "status": r.status,
+                 "boat": session.get(Boat, r.boat_id).name if r.boat_id else None}
+                for r in reqs if r.status in ("pending", "confirmed", "declined")
+            ],
+            "callbacks": [
+                {"callback_id": c.public_id, "reason": c.reason, "status": c.status}
+                for c in cbs if c.status in ("queued", "calling")
+            ],
+            "message": f"Returning caller {name or 'unknown'} — they have "
+                       f"{len(reqs)} request(s) and {len(cbs)} callback(s) on file.",
+        }
