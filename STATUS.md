@@ -32,6 +32,6 @@
 
 ## Key docs
 - Demo walkthrough: `starter/docs/demo-runbook.md`
-- Claude content pack: `_pack/kaayal-devin-pack/` (Phase-1-era; live truth wins where they differ)
+- Claude content pack: `pack-claude/` (Phase-1-era; live truth wins where they differ)
 - Sarvam portal steps: `starter/docs/sarvam-dashboard-setup.md`
 - Wiki: `starter/docs/wiki/index.html` · Specs (superseded phases): `starter/specs/`
