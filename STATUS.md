@@ -1,5 +1,20 @@
 # Kaayal — status (updated 2026-11-21)
 
+## Website quality pass (latest)
+
+- New `/privacy` page: data collected (name, phone, date, group size), consent
+  flow, who sees inquiries, callback window 09:00-18:00 IST, opt-out
+  ("don't call me"), 90-day PII anonymization, honest Sarvam recording caveat.
+- Footer now carries the prototype disclosure + Privacy/WhatsApp links;
+  nav is unified across all public pages with `aria-current="page"`.
+- Copy aligned: public claims are Malayalam + English only; "verified"
+  replaced by "reviewed by the Kaayal owner" everywhere user-facing.
+- Verified at 375/768/1440 via CDP emulation: no horizontal overflow,
+  scrollWidth == clientWidth on every public page.
+- Lighthouse (mobile, live): perf 88 / a11y 100 / best-practices 100 / SEO 100.
+  LCP 2.9s, CLS 0.008, TBT 0.
+- 117 tests green.
+
 ## Live
 - `https://kaayal.glitchy.systems` — FastAPI via Cloudflare named tunnel `kaayal` (ID `9af85681-71d7-4370-a455-11f14d293d1b`) → `localhost:8000`
 - Public repo: https://github.com/Glitchyi/kaayal (SSH `git@github.com:Glitchyi/kaayal.git`)

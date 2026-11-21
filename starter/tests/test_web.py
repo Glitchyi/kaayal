@@ -75,7 +75,8 @@ async def test_landing_uses_shared_nav_and_footer(client):
     assert r.status_code == 200
     assert 'class="topnav"' in r.text and 'href="/boats"' in r.text
     assert 'href="/faq"' in r.text
-    assert "nothing on this site is a confirmed booking" in r.text
+    assert "Nothing on this site is a confirmed booking" in r.text
+    assert "return calls are simulated" in r.text  # honesty line
     assert f'tel:+{"".join(c for c in PHONE if c.isdigit())}' in r.text
 
 
@@ -199,6 +200,34 @@ async def test_faq_page(client):
     assert "recorded" not in r.text.lower()  # Q02 pending — no recording claim
 
 
+async def test_nav_has_aria_current_and_all_pages(client):
+    r = await client.get("/faq")
+    assert 'href="/faq" aria-current="page"' in r.text
+    for path in ("/explore", "/boats", "/paayal", "/before-you-book", "/faq"):
+        assert f'href="{path}"' in r.text
+
+
+async def test_boats_empty_state_is_honest(client):
+    r = await client.get("/boats")
+    assert "No boats on the list yet" in r.text
+    assert "Call Paayal" in r.text
+
+
+async def test_privacy_page(client):
+    r = await client.get("/privacy")
+    assert r.status_code == 200
+    assert "anonymized after 90 days" in r.text
+    assert "don’t call me" in r.text
+    assert "09:00 and 18:00 IST" in r.text
+    assert "no real outbound call" in r.text.lower() or "simulated" in r.text
+
+
+async def test_footer_links_privacy_and_whatsapp(client):
+    r = await client.get("/")
+    assert 'href="/privacy"' in r.text
+    assert "wa.me/" in r.text
+
+
 # --- SEO plumbing ---
 
 async def test_canonical_and_hreflang_present(client):
@@ -226,7 +255,7 @@ async def test_faqpage_jsonld_valid(client):
     )
     assert data, "FAQPage JSON-LD missing"
     assert data["@type"] == "FAQPage"
-    assert len(data["mainEntity"]) == 7
+    assert len(data["mainEntity"]) == 10
     assert all(e["@type"] == "Question" for e in data["mainEntity"])
 
 
@@ -242,18 +271,20 @@ async def test_sitemap_xml_lists_public_pages(client):
     r = await client.get("/sitemap.xml")
     assert r.status_code == 200
     for p in ("/", "/boats", "/paayal", "/explore",
-              "/before-you-book", "/dtpc-houseboat-counter", "/faq"):
+              "/before-you-book", "/dtpc-houseboat-counter", "/faq", "/privacy"):
         assert f"<loc>http://test{p}</loc>" in r.text
     assert "/admin" not in r.text and "/portal" not in r.text
 
 
 async def test_public_pages_have_one_h1_and_titles(client):
     for path in ("/", "/boats", "/paayal", "/explore",
-                 "/before-you-book", "/dtpc-houseboat-counter", "/faq"):
+                 "/before-you-book", "/dtpc-houseboat-counter", "/faq", "/privacy"):
         r = await client.get(path)
         assert r.status_code == 200, path
         assert r.text.count("<h1") == 1, path
         title = re.search(r"<title>(.*?)</title>", r.text).group(1)
         assert len(title) <= 60, (path, title)
+        if path != "/":
+            assert title.endswith("| Kaayal"), (path, title)
         desc = re.search(r'name="description" content="(.*?)"', r.text)
         assert desc and len(desc.group(1)) <= 155, path

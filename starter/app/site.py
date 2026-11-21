@@ -1,6 +1,6 @@
 """Public site — Backwater Editorial pages.
 
-Honesty contract (prototype): listings are owner-verified but Paayal never
+Honesty contract (prototype): listings are owner-reviewed but Paayal never
 confirms bookings or prices; demo-seeded inventory carries a DEMO badge;
 WhatsApp onboarding is a demo path; nothing here is a confirmed booking.
 """
@@ -40,14 +40,21 @@ def _nav(request: Request) -> str:
     if phone:
         digits = re.sub(r"\D", "", phone)
         cta = f'<a class="btn navcall" href="tel:+{_esc(digits)}">Call {_esc(phone)}</a>'
+    here = request.url.path
+
+    def link(path: str, label: str) -> str:
+        cur = ' aria-current="page"' if here == path else ""
+        return f'<a class="navlink" href="{path}"{cur}>{label}</a>'
+
     return (
         '<nav class="topnav" aria-label="Main">'
         '<a class="wordmark" href="/">Kaayal <span class="ml" lang="ml">കായൽ</span></a>'
-        '<a class="navlink" href="/boats">Boats</a>'
-        '<a class="navlink" href="/paayal">Meet Paayal</a>'
-        '<a class="navlink" href="/explore">Explore</a>'
-        '<a class="navlink" href="/faq">FAQ</a>'
-        f"{cta}</nav>"
+        + link("/explore", "Explore")
+        + link("/boats", "Houseboats")
+        + link("/paayal", "Meet Paayal")
+        + link("/before-you-book", "Before You Book")
+        + link("/faq", "FAQ")
+        + f"{cta}</nav>"
     )
 
 
@@ -58,15 +65,21 @@ def _footer(request: Request) -> str:
         d = re.sub(r"\D", "", s.kaayal_phone_number)
         nums.append(f'Call <a href="tel:+{_esc(d)}">{_esc(s.kaayal_phone_number)}</a>')
     if s.kaayal_whatsapp_number:
-        nums.append(f"WhatsApp {_esc(s.kaayal_whatsapp_number)}")
+        d = re.sub(r"\D", "", s.kaayal_whatsapp_number)
+        nums.append(
+            f'WhatsApp <a href="https://wa.me/{_esc(d)}" rel="noopener">'
+            f'{_esc(s.kaayal_whatsapp_number)}</a>')
     nums_html = f"<p>{' · '.join(nums)}</p>" if nums else ""
     return (
         '<footer class="site-footer">'
-        "<p>Kaayal prototype: the phone line and voice assistant are live; "
-        "WhatsApp onboarding is a demo; the catalog shows verified listings; "
-        "booking inquiries are live, but Paayal’s return calls are simulated "
-        "(no real outbound call is placed); nothing on this site is a "
-        "confirmed booking.</p>"
+        "<p>Kaayal is a working prototype: inbound calling and booking inquiries "
+        "are live, and the callback system is real — but Paayal’s return calls "
+        "are simulated, so no real outbound call is placed. Nothing on this "
+        "site is a confirmed booking; the operator always confirms.</p>"
+        '<p><a href="/privacy">Privacy &amp; consent</a> · '
+        '<a href="/before-you-book">Before you book</a> · '
+        '<a href="/dtpc-houseboat-counter">DTPC counter</a> · '
+        '<a href="/faq">FAQ</a></p>'
         f"{nums_html}</footer>"
     )
 
@@ -142,7 +155,8 @@ def landing(request: Request):
 
     demo_badge = " <span class='badge wait'>DEMO</span>"
     avail_ok = "<span class='badge ok'>available</span>"
-    avail_off = "<span class='badge wait'>unavailable — Paayal can call you when it is</span>"
+    avail_off = ("<span class='badge wait'>unavailable</span> "
+                 "<span class='muted small'>— Paayal can call you when it is</span>")
     boats = "".join(
         f'<div class=card><h3>{_esc(b.name)}'
         f'{demo_badge if b.source == "demo-seed" else ""}</h3>'
@@ -152,25 +166,27 @@ def landing(request: Request):
         f'<p style="margin:.4rem 0 0">{avail_ok if b.available else avail_off}</p></div>'
         for b, op in rows
     ) or (
-        '<p class=muted>Verified boat listings are being added. '
-        'Call Paayal and she’ll tell you what’s available today.</p>'
+        '<div class=card><h2>No boats on the list yet</h2>'
+        '<p class=muted>Operators are being onboarded. Call Paayal — she can '
+        'take a booking inquiry anyway, and with your consent she can call you '
+        'back when a boat that fits is listed.</p></div>'
     )
 
     body = f"""
 <h1 style="font-size:2.6rem">The backwaters,<br>a phone call away.</h1>
 <p style="font-size:1.15rem;max-width:34rem">
-  Paayal is Kaayal’s voice assistant. Call and ask — in <b>Malayalam</b>, <b>English</b>,
-  or nine other Indian languages — about boat operators in Alappuzha, and leave a
-  booking inquiry. The operator calls you back to confirm. No app, no forms, no account.</p>
+  Paayal is Kaayal’s voice assistant. Call and ask — in <b>Malayalam</b> or <b>English</b> —
+  about boat operators in Alappuzha, and leave a booking inquiry. The operator calls you
+  back to confirm. No app, no forms, no account.</p>
 {call_line}
-<p class=muted small>Prefer the web? <a href="/boats">Browse the verified boats</a>
+<p class=muted small>Prefer the web? <a href="/boats">Browse the boats</a>
 Paayal can tell you about.</p>
 {_CONTOURS}
 
 <h2>How it works</h2>
 <ol style="padding-left:1.25rem">
   <li style="margin-bottom:.6rem"><b>Call</b> — Paayal answers in your language and can tell
-      you about verified boats: capacity, embarkation point, the operator behind each one.</li>
+      you about reviewed boats: capacity, embarkation point, the operator behind each one.</li>
   <li style="margin-bottom:.6rem"><b>Inquire</b> — leave your name, number, date, and group size.
       With your permission, the inquiry goes to the operator.</li>
   <li style="margin-bottom:.6rem"><b>Not available now?</b> — if a boat is unavailable or its
@@ -180,22 +196,24 @@ Paayal can tell you about.</p>
       Nothing is booked until they say yes.</li>
 </ol>
 
-<h2>Verified boats</h2>
+<h2>Boats on the Kaayal list</h2>
 {boats}
 <p class=muted small><a href="/boats">See the full list with prices and amenities →</a></p>
 
 <hr class=rule>
 <p class=muted small><b>For operators.</b> Run a boat out of Alappuzha? Message us on
-WhatsApp — a human verifies you, then you list your boats once, get booking
+WhatsApp — a human reviews you, then you list your boats once, get booking
 inquiries, and confirm by a call back.</p>
 {operator_cta}
-<p class=muted small>Every listing is verified by the Kaayal owner before callers hear about it.
-Kaayal never confirms prices, availability, or bookings on its own — the operator always does.</p>
+<p class=muted small>Every listing is reviewed and switched on by the Kaayal owner before
+callers hear about it — that means a person approved it, not a government or
+safety certification. Kaayal never confirms prices, availability, or bookings
+on its own — the operator always does.</p>
 """
     return _public(request,
-        "Kaayal — Alappuzha boats by phone",
+        "Kaayal | Alappuzha boats by phone",
         body,
-        description="Call Kaayal and talk to Paayal in Malayalam, English, or nine other Indian languages: verified boats, booking inquiries, a call back to confirm.",
+        description="Call Kaayal and talk to Paayal in Malayalam or English about Alappuzha boats: send a booking inquiry, the operator calls back to confirm.",
     )
 
 
@@ -246,22 +264,27 @@ def boats_page(request: Request):
         ).all()
 
     cards = "".join(_boat_card(b, op) for b, op in rows) or (
-        '<p class=muted>Verified boat listings are being added. '
-        'Call Paayal and she’ll tell you what’s available today.</p>'
+        '<div class=card><h2>No boats on the list yet</h2>'
+        '<p class=muted>Operators are being onboarded. Call Paayal — she can '
+        'take a booking inquiry anyway, and with your consent she can call you '
+        'back when a boat that fits is listed.</p></div>'
     )
     body = f"""
 <h1>Boats on the Kaayal list</h1>
-<p class=muted>Owner-verified boats operating out of Alappuzha. Availability and
-prices come from the operators themselves.</p>
+<p class=muted>Boats the Kaayal owner has reviewed and switched on, operating out
+of Alappuzha. Availability and prices come from the operators themselves —
+the operator confirms both on the call back.</p>
 {cards}
 <hr class=rule>
-<p class="muted small">Every listing here is verified by the Kaayal owner.
+<p class="muted small">Every listing here is reviewed by the Kaayal owner —
+a person, not a government or safety certification.
 <b>Paayal never confirms bookings</b> — after you inquire, the operator calls you
-back and confirms the trip and the price themselves.</p>
+back and confirms the trip and the price themselves. Prefer an official counter?
+See <a href="/dtpc-houseboat-counter">the DTPC pre-paid counter</a>.</p>
 <p><a class=btn href="tel:+{_tel_digits(request)}" style="text-decoration:none">Call to send a booking inquiry</a></p>
 """
-    return _public(request, "Boats — Kaayal", body,
-                   description="Verified Alappuzha boat listings with prices and amenities.")
+    return _public(request, "Houseboats | Kaayal", body,
+                   description="Alappuzha boats reviewed by the Kaayal owner — availability and prices from the operators, confirmed on the call back.")
 
 
 # --- /paayal ----------------------------------------------------------------
@@ -276,15 +299,15 @@ def paayal_page(request: Request):
      border:2px solid var(--line)">
 <p style="font-size:1.15rem;max-width:34rem">
   Paayal is Kaayal’s voice assistant — a <b>Malayalam-first</b> voice on the other
-  end of the Kaayal phone line. She also speaks English and nine other Indian
-  languages. You talk, she answers; there is nothing to install and nothing to type.</p>
+  end of the Kaayal phone line. She also speaks English. You talk, she answers;
+  there is nothing to install and nothing to type.</p>
 {call_line}
 
 <h2>What Paayal does</h2>
 <ul style="padding-left:1.25rem">
   <li style="margin-bottom:.5rem">Answers questions about boat trips out of Alappuzha,
-      in Malayalam, English, or nine other Indian languages.</li>
-  <li style="margin-bottom:.5rem">Describes <b>verified</b> boats — capacity, embarkation
+      in Malayalam or English.</li>
+  <li style="margin-bottom:.5rem">Describes <b>reviewed</b> boats — capacity, embarkation
       point, amenities, and the operator behind each listing.</li>
   <li style="margin-bottom:.5rem">Takes booking inquiries: your name, number, preferred
       date, and group size go to the operator <b>only with your consent</b>.</li>
@@ -304,11 +327,21 @@ def paayal_page(request: Request):
       you settle directly with the operator.</li>
 </ul>
 
+<h2>Things you can ask her</h2>
+<ul style="padding-left:1.25rem">
+  <li style="margin-bottom:.5rem">“What boats go out of Alappuzha this weekend?”</li>
+  <li style="margin-bottom:.5rem">“Is anything available for six people on Saturday?”</li>
+  <li style="margin-bottom:.5rem">“What should I check before I book a houseboat?”</li>
+  <li>“Call me back when that boat is free.”</li>
+</ul>
+
 <hr class=rule>
 <p class=muted small>Paayal shares your name and number with an operator only after
-you say yes on the call. Say no, and nothing is shared.</p>
+you say yes on the call. Say no, and nothing is shared. She asks before saving a
+callback too — tell her “don’t call me” any time and it stops.
+<a href="/privacy">How your details are handled →</a></p>
 """
-    return _public(request, "Meet Paayal — Kaayal", body,
+    return _public(request, "Meet Paayal | Kaayal", body,
                    description="Paayal is Kaayal's Malayalam-first voice assistant. She answers questions and takes booking inquiries — she never confirms bookings or takes payments.")
 
 
@@ -335,12 +368,13 @@ light are the kindest.</p>
 <h2>Before you go</h2>
 <p>Trip length, route, and price vary by boat and by season, and they are the
 operator’s call — not ours. We don’t publish timings or tariffs here. Paayal can
-describe verified boats on the phone, and the operator confirms the details
+describe boats on the list by phone, and the operator confirms the details
 when they call you back.</p>
-<p><a class=btn href="/boats" style="text-decoration:none">See verified boats</a></p>
+<p><a class=btn href="/boats" style="text-decoration:none">See boats on the list</a>
+&nbsp;<a href="/before-you-book">What to ask before you book →</a></p>
 """
-    return _public(request, "Explore Alappuzha — Kaayal", body,
-                   description="The Alappuzha backwaters: trips from Finishing Point and Punnamada, and how Kaayal connects you to verified operators.")
+    return _public(request, "Explore Alappuzha | Kaayal", body,
+                   description="The Alappuzha backwaters: trips from Finishing Point and Punnamada, and how Kaayal connects you to local operators.")
 
 
 # --- /before-you-book ---------------------------------------------------------
@@ -349,9 +383,8 @@ when they call you back.</p>
 def guide_page(request: Request):
     body = f"""
 <h1>What to ask before you book an Alappuzha houseboat</h1>
-<p class=muted>Five questions that save most of the trouble people run into
-with houseboat bookings. The operator’s answers are theirs to give — these
-are the things worth asking.</p>
+<p class=muted>Five questions worth asking before you pay a deposit — the
+operator’s answers are theirs to give.</p>
 <ol style="padding-left:1.25rem">
   <li style="margin-bottom:.75rem"><b>Is the boat registered?</b> Ask for the
       boat’s registration before you pay anything.</li>
@@ -369,6 +402,11 @@ are the things worth asking.</p>
   <li><b>Which boat will you actually get?</b> Ask for photos of the actual
       boat, not a brochure boat.</li>
 </ol>
+<h2 style="margin-top:2rem">What moves the price</h2>
+<p class=muted>Quotes vary with the boat itself — size and bedrooms, A/C hours,
+season and weekday versus peak dates, what’s included (meals, cruise time),
+taxes, and the cancellation terms. Comparing two boats? Compare what’s
+included, not just the number.</p>
 <p style="margin-top:1.5rem">Not sure? Ask Paayal.
 <a href="tel:+{_tel_digits(request)}">Call {_esc(request.app.state.settings.kaayal_phone_number)}</a>.</p>
 <p class="muted small">Further reading:
@@ -377,7 +415,7 @@ are the things worth asking.</p>
 """
     return _public(
         request,
-        "Alappuzha houseboat guide: what to ask before you book",
+        "Before You Book | Kaayal",
         body,
         description="Classification, registration, what is included, why prices differ. A plain-language checklist for booking an Alleppey houseboat.",
     )
@@ -404,7 +442,7 @@ we don’t keep their timings here.</p>
 """
     return _public(
         request,
-        "Alappuzha DTPC houseboat counter: how it works",
+        "DTPC Houseboat Counter | Kaayal",
         body,
         description="How the district tourism council's pre-paid houseboat counter works, and when to use it. Check current details with DTPC.",
     )
@@ -426,16 +464,28 @@ _FAQ = [
      "operator always confirms on the call back. If nothing fits, she can "
      "arrange a callback when something frees up."),
     ("Which languages does Paayal speak?",
-     "Malayalam and English, plus nine more Indian languages — Hindi, Tamil, "
-     "Telugu, Kannada, Marathi, Gujarati, Punjabi, Bengali and Odia — including "
-     "mixing languages in the same call."),
+     "Malayalam and English, including mixing both in the same call."),
     ("Do I need an app?",
      "No. Just call the Kaayal number and talk."),
     ("Is Kaayal government-approved or operator-verified?",
      "No. Kaayal is an independent service and does not rank or endorse boats. "
-     "Every listing is verified by the Kaayal owner before callers hear about "
-     "it — to check a boat yourself, ask for its registration and Kerala "
-     "Tourism classification."),
+     "Listings are reviewed and switched on by the Kaayal owner — a human "
+     "approval step, not a government or safety certification. To check a "
+     "boat yourself, ask for its registration and Kerala Tourism "
+     "classification."),
+    ("What happens to my name and number?",
+     "They go only to the operator you inquire about, after you consent on "
+     "the call — that is the whole point of the inquiry. The Kaayal owner can "
+     "see inquiries in the admin dashboard. Details are anonymized after 90 "
+     "days. See the privacy page for the full picture."),
+    ("Can I cancel a booking inquiry?",
+     "There is nothing to cancel — an inquiry is not a booking. If you "
+     "changed your mind, tell the operator when they call, or call Paayal "
+     "and ask her to withdraw your inquiry."),
+    ("Can I stop Paayal calling me back?",
+     "Yes — tell her “don’t call me” at any point, on any call. Callbacks "
+     "only ever happen between 09:00 and 18:00 IST, at most twice per "
+     "request, and only about the inquiry you consented to."),
     ("Are the callbacks real?",
      "The callback system is real — consent, queueing and availability "
      "triggers all work. In this prototype Paayal’s return call is simulated "
@@ -446,7 +496,7 @@ _FAQ = [
 @router.get("/faq", response_class=HTMLResponse)
 def faq_page(request: Request):
     items = "".join(
-        f"<h3>{_esc(q)}</h3><p class=muted>{_esc(a)}</p>" for q, a in _FAQ
+        f'<h2 class="faq-q">{_esc(q)}</h2><p class=muted>{_esc(a)}</p>' for q, a in _FAQ
     )
     faq_ld = {
         "@context": "https://schema.org",
@@ -467,15 +517,71 @@ def faq_page(request: Request):
 <p class=muted>What Kaayal does, what it doesn’t, and how your call is handled.</p>
 {items}
 <hr class=rule>
-<p class=muted small>Still unsure? Call and ask Paayal directly — in Malayalam, English, or another Indian language.</p>
+<p class=muted small>Still unsure? Call and ask Paayal directly — in Malayalam or English.</p>
 {call_line}
 """
     return _public(
         request,
-        "Kaayal FAQ: bookings, prices, languages, calls",
+        "FAQ | Kaayal",
         body,
         description="Straight answers on what Kaayal does, what it does not do, and how your call is handled.",
         head_extra=jsonld,
+    )
+
+
+# --- /privacy -----------------------------------------------------------------
+
+@router.get("/privacy", response_class=HTMLResponse)
+def privacy_page(request: Request):
+    body = """
+<h1>Privacy &amp; consent</h1>
+<p class=muted>What Kaayal does with your details — based on what the system
+actually does today, not promises.</p>
+
+<h2>What we collect</h2>
+<p>Only what a booking inquiry or callback needs: your <b>name</b>, <b>phone
+number</b>, preferred date, and group size. Paayal asks for your permission on
+the call before saving any of it — say no and nothing is stored.</p>
+
+<h2>What it’s for</h2>
+<p>So the operator can call you back and confirm the trip. That is the entire
+purpose — there is no marketing list, no resale, no advertising.</p>
+
+<h2>Who sees it</h2>
+<p>The operator you inquire about sees your contact details when they confirm
+your inquiry. The Kaayal owner can view inquiries in the admin dashboard.
+Nobody else.</p>
+
+<h2>Callbacks</h2>
+<p>A callback is only queued after you agree on the call. Calls are attempted
+only between <b>09:00 and 18:00 IST</b>, at most twice per request, and expire
+after about a week. Say “don’t call me” to Paayal at any time — on any call —
+and all pending callbacks for your number stop. In this prototype the return
+call itself is simulated; the consent and queue rules described here are real.</p>
+
+<h2>How long we keep it</h2>
+<p>Your name, phone number, and notes are <b>anonymized after 90 days</b>. The
+inquiry keeps only its reference number and status afterwards.</p>
+
+<h2>Calls, recordings, transcripts</h2>
+<p>Kaayal does not store call recordings or transcripts of your inbound calls
+in its own database. Simulated demo callbacks keep a script of what Paayal
+would have said — clearly marked as simulation, not a real conversation. Calls
+are carried by Sarvam’s voice platform; whether they retain call audio is
+governed by Sarvam’s policies and the account’s settings — that part is outside
+Kaayal’s own systems and we are not able to state it here.</p>
+
+<h2>This website</h2>
+<p>No cookies, no analytics, no trackers, no forms that collect your details.
+Just links to call or message us.</p>
+
+<p class=muted small>Questions about your details? Call the Kaayal number and ask.</p>
+"""
+    return _public(
+        request,
+        "Privacy | Kaayal",
+        body,
+        description="What Kaayal does with your name and number: consent, sharing, callbacks, and 90-day anonymization — plainly stated.",
     )
 
 
@@ -483,7 +589,7 @@ def faq_page(request: Request):
 
 _PUBLIC_PATHS = [
     "/", "/boats", "/paayal", "/explore",
-    "/before-you-book", "/dtpc-houseboat-counter", "/faq",
+    "/before-you-book", "/dtpc-houseboat-counter", "/faq", "/privacy",
 ]
 
 
