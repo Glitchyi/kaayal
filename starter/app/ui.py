@@ -270,15 +270,16 @@ td.actions form.inline button {{ min-height: 2.5rem; padding: .35rem .8rem; font
   .topnav a.navlink {{ padding: .5rem 0; }}
   section[id], h2[id] {{ scroll-margin-top: 1rem; }}
 }}
-/* Public site on phones: just the wordmark up top. The wrapped row of
-   section links read as clutter; the call buttons carry the main action. */
+/* Phones, all pages: just the wordmark up top. The wrapped row of links
+   read as clutter; on the public site the call buttons carry the action. */
 @media (max-width: 640px) {{
-  body.site .topnav a.navlink {{ display: none; }}
-  /* Small wordmark in the top-left corner: the desktop size, with the
-     space above it equal to the page gutter on its left, and the same
-     below so it sits centred in the header strip. */
-  body.site .topnav {{ padding: var(--gutter) 0; align-items: center; }}
-  body.site .topnav .wordmark {{ font-size: 1.35rem; line-height: 1; margin: 0; }}
+  /* Every page (site, privacy, admin, portal): small wordmark in the
+     top-left corner at its desktop size, padded from the top by the same
+     gutter as from the left and centred in the header strip. Section links
+     are hidden; a page's role label (admin / operator) stays on the right. */
+  .topnav a.navlink {{ display: none; }}
+  .topnav {{ flex-wrap: nowrap; padding: var(--gutter, 1.25rem) 0; align-items: center; }}
+  .topnav .wordmark {{ font-size: 1.35rem; line-height: 1; margin: 0 auto 0 0; flex-basis: auto; }}
 }}
 .fab-call {{
   position: fixed; right: 1.25rem; z-index: 6;
