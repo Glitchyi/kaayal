@@ -86,6 +86,7 @@ button, .btn {{
   background: var(--teal); color: var(--ivory);
   border: 1px solid var(--teal); border-radius: .375rem;
   padding: .55rem 1.1rem; touch-action: manipulation;
+  min-height: 2.75rem; display: inline-flex; align-items: center;
   transition: background-color .15s ease, border-color .15s ease;
 }}
 button:hover, .btn:hover {{ background: var(--lagoon); border-color: var(--lagoon); color: var(--ivory); }}
@@ -139,17 +140,28 @@ code {{
 
 
 def page(title: str, body: str, description: str = "",
-         nav: str = "", footer: str = "") -> str:
+         nav: str = "", footer: str = "",
+         canonical_url: str = "", head_extra: str = "") -> str:
     """Full HTML page shell. Caller must escape dynamic content via esc().
 
     `nav` renders before <main>, `footer` after it — both are trusted HTML
-    built by the caller (e.g. site.py's shared chrome)."""
+    built by the caller (e.g. site.py's shared chrome). `canonical_url` emits
+    canonical + hreflang (en/x-default) link tags; `head_extra` is trusted
+    HTML appended to <head> (e.g. JSON-LD)."""
     desc = f'<meta name="description" content="{html.escape(description)}">' if description else ""
+    canon = ""
+    if canonical_url:
+        u = html.escape(canonical_url)
+        canon = (
+            f'<link rel="canonical" href="{u}">'
+            f'<link rel="alternate" hreflang="en" href="{u}">'
+            f'<link rel="alternate" hreflang="x-default" href="{u}">'
+        )
     return (
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
         "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
-        f'<meta name="theme-color" content="{IVORY}">{desc}'
-        f"<title>{html.escape(title)}</title>{_FONT_LINKS}"
+        f'<meta name="theme-color" content="{IVORY}">{desc}{canon}'
+        f"<title>{html.escape(title)}</title>{_FONT_LINKS}{head_extra}"
         f"<style>{CSS}</style></head><body>"
         '<a class="skip" href="#main">Skip to content</a>'
         f'{nav}<main id="main">{body}</main>{footer}</body></html>'
@@ -165,10 +177,26 @@ def status_badge(status: str) -> str:
         "pending": "wait",
         "confirmed": "ok",
         "verified": "ok",
-        "blocked": "bad",
-        "cancelled": "bad",
+        "converted": "ok",
+        "available": "ok",
+        "reachable": "ok",
+        "approved": "ok",
+        "queued": "wait",
+        "calling": "wait",
         "unverified": "wait",
+        "unavailable": "wait",
         "pending verification": "wait",
+        "pending approval": "wait",
+        "pending_approval": "wait",
+        "blocked": "bad",
+        "declined": "bad",
+        "cancelled": "bad",
+        "expired": "bad",
+        "opted_out": "bad",
+        "not_interested": "bad",
+        "no_answer": "bad",
+        "unreachable": "bad",
+        "inactive": "bad",
     }.get(status, "wait")
     return f'<span class="badge {cls}">{esc(status)}</span>'
 

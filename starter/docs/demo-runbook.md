@@ -13,7 +13,7 @@ Everything here runs without manual DB edits. Public base URL: `https://kaayal.g
 ## Scenario A — tourist journey (the full loop)
 
 1. **Discover**: open `/boats` — see Demo Shikara (available) and Demo Deluxe (unavailable) with DEMO badges.
-2. **Inquire via web** (`/inquire`) or via Paayal on a call: pick **Demo Deluxe**.
+2. **Inquire via Paayal** on a call (the web form was removed — inquiries are voice-only): pick **Demo Deluxe**. For a demo without a real call, create the row via the voice tool: `POST /api/request` with the tool secret, `source="web"` is no longer used.
 3. Boat is unavailable → the flow offers a **callback**. Give consent → `CB-…` row queued (admin → Callbacks shows it, parked).
 4. **Operator fixes availability**: log into the Monsoon portal (link from admin → Reissue/Approve) → toggle Demo Deluxe to **available**. This fires `fire_boat_available` → callback requeued (`trigger_seq` bumps).
 5. **Engine runs**: during 09:00–18:00 IST the background tick attempts the call automatically — or hit **Run due callbacks** in admin for an immediate simulated attempt.
@@ -31,7 +31,7 @@ Everything here runs without manual DB edits. Public base URL: `https://kaayal.g
 1. `cd starter/wa-bot && npm start` → pair the +91 9400354625 phone via QR (see `docs/wa-demo.md`).
 2. DM that number → bot walks name → boat → replies **pending verification**.
 3. Admin → the new operator appears as **pending approval** → Approve → portal link shown once → send it back over WhatsApp (admin row has a wa.me shortcut).
-4. Without WhatsApp: same flow at `/join` on the site.
+4. Without WhatsApp: create the operator directly in `/admin` (the `/join` web form was removed).
 
 ## Scenario D — opt-outs and safety
 

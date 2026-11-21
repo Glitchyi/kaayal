@@ -1,11 +1,14 @@
-"""Public web pages: /boats, /paayal, /explore, /inquire, /join + shared chrome."""
+"""Public web pages + shared chrome + SEO plumbing."""
+
+import json
+import re
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from app.config import Settings
-from app.db import Boat, BookingRequest, Operator, utcnow
+from app.db import Boat, Operator, utcnow
 from app.main import create_app
 from app.portal import hash_token
 
@@ -17,6 +20,7 @@ def make_settings() -> Settings:
     return Settings(
         sarvam_tool_shared_secret=SECRET,
         database_url="sqlite://",
+        kaayal_public_base_url="",
         kaayal_phone_number=PHONE,
         kaayal_whatsapp_number="+91 94000 00001",
         _env_file=None,
@@ -64,19 +68,36 @@ def seed_boat(app, op, name="Lake Queen", verified=True, available=True,
         return b
 
 
-def all_requests(app):
-    with Session(app.state.engine) as s:
-        return s.exec(select(BookingRequest)).all()
-
-
 # --- shared chrome + page markers ---
 
 async def test_landing_uses_shared_nav_and_footer(client):
     r = await client.get("/")
     assert r.status_code == 200
     assert 'class="topnav"' in r.text and 'href="/boats"' in r.text
+    assert 'href="/faq"' in r.text
     assert "nothing on this site is a confirmed booking" in r.text
     assert f'tel:+{"".join(c for c in PHONE if c.isdigit())}' in r.text
+
+
+async def test_landing_has_no_data_storing_form_links(client):
+    r = await client.get("/")
+    assert "/inquire" not in r.text
+    assert "/join" not in r.text
+
+
+async def test_landing_shows_availability_and_demo_badges(client, app):
+    op = seed_operator(app)
+    seed_boat(app, op, name="Seed Cruiser", available=False, source="demo-seed")
+    r = await client.get("/")
+    assert "Seed Cruiser" in r.text
+    assert ">DEMO<" in r.text
+    assert "unavailable" in r.text
+
+
+async def test_landing_callback_wording_is_honest_about_simulation(client):
+    r = await client.get("/")
+    assert "Paayal can call <i>you</i> back" in r.text  # the offer exists
+    assert "return calls are simulated" in r.text      # footer disclosure
 
 
 async def test_boats_page_lists_verified_boat(client, app):
@@ -89,6 +110,8 @@ async def test_boats_page_lists_verified_boat(client, app):
     assert "life jackets" in r.text and "shaded deck" in r.text
     assert ">available<" in r.text
     assert "Paayal never confirms bookings" in r.text
+    assert "/inquire" not in r.text  # form removed — call CTA instead
+    assert f'tel:+{"".join(c for c in PHONE if c.isdigit())}' in r.text
 
 
 async def test_boats_hides_unverified_and_badges_demo(client, app):
@@ -117,6 +140,7 @@ async def test_paayal_page(client):
     assert "Meet Paayal" in r.text
     assert "Malayalam" in r.text
     assert "never" in r.text.lower()  # what Paayal never does
+    assert "return call is simulated" in r.text  # honest callback disclosure
     assert PHONE in r.text  # call CTA
 
 
@@ -128,125 +152,108 @@ async def test_explore_page(client):
     assert 'href="/boats"' in r.text
 
 
-async def test_inquire_form_renders(client, app):
-    op = seed_operator(app)
-    seed_boat(app, op)
+# --- removed form routes ---
+
+async def test_inquire_route_is_gone(client):
     r = await client.get("/inquire")
-    assert r.status_code == 200
-    assert "booking inquiry" in r.text.lower()
-    assert "No preference — general inquiry" in r.text
-    assert "Lake Queen" in r.text
-    assert "call me back" in r.text  # consent copy
+    assert r.status_code == 404
+    r = await client.post("/inquire", data={"name": "Anu", "phone": "+91 90000 00000"})
+    assert r.status_code == 404
 
 
-async def test_join_form_renders(client):
+async def test_join_route_is_gone(client):
     r = await client.get("/join")
+    assert r.status_code == 404
+    r = await client.post("/join", data={"name": "X", "phone": "+91 90000 00000"})
+    assert r.status_code == 404
+
+
+# --- new content pages ---
+
+async def test_before_you_book_page(client):
+    r = await client.get("/before-you-book")
     assert r.status_code == 200
-    assert "operator" in r.text.lower()
+    assert "What to ask before you book an Alappuzha houseboat" in r.text
+    assert "registration" in r.text.lower()
+    assert "Silver, Gold, or Diamond" in r.text
+    assert "keralatourism.org/cls/houseboats" in r.text
+    assert "onmanorama.com" in r.text
+    assert PHONE in r.text
 
 
-# --- /inquire POST ---
-
-async def test_inquire_valid_creates_web_request(client, app):
-    op = seed_operator(app)
-    boat = seed_boat(app, op)
-    r = await client.post("/inquire", data={
-        "name": "Anu", "phone": "+91 98765 43210", "boat_id": str(boat.id),
-        "preferred_date": "next Saturday", "group_size": "4", "consent": "yes",
-    })
+async def test_dtpc_page(client):
+    r = await client.get("/dtpc-houseboat-counter")
     assert r.status_code == 200
-    assert "REQ-" in r.text
-    assert "nothing is booked yet" in r.text
-    reqs = all_requests(app)
-    assert len(reqs) == 1
-    assert reqs[0].source == "web" and reqs[0].consent_given is True
-    assert reqs[0].boat_id == boat.id and reqs[0].group_size == 4
+    assert "DTPC" in r.text and "pre-paid houseboat counter" in r.text
+    assert "₹2,500" in r.text
+    assert "keralatourism.org/houseboat" in r.text
+    assert "Confirm current details with DTPC" in r.text
 
 
-async def test_inquire_no_consent_creates_no_row(client, app):
-    op = seed_operator(app)
-    boat = seed_boat(app, op)
-    r = await client.post("/inquire", data={
-        "name": "Anu", "phone": "+91 98765 43210", "boat_id": str(boat.id),
-    })
+async def test_faq_page(client):
+    r = await client.get("/faq")
     assert r.status_code == 200
-    assert "consent" in r.text.lower()
-    assert all_requests(app) == []
+    assert "Can I book a houseboat through Kaayal?" in r.text
+    assert "Nothing is booked until they say yes" in r.text
+    assert "Malayalam and English" in r.text
+    assert "recorded" not in r.text.lower()  # Q02 pending — no recording claim
 
 
-async def test_inquire_bad_phone_rejected(client, app):
-    r = await client.post("/inquire", data={
-        "name": "Anu", "phone": "not-a-phone", "consent": "yes",
-    })
+# --- SEO plumbing ---
+
+async def test_canonical_and_hreflang_present(client):
+    r = await client.get("/faq")
+    assert 'rel="canonical" href="http://test/faq"' in r.text
+    assert 'hreflang="en"' in r.text
+    assert 'hreflang="x-default"' in r.text
+
+
+async def test_organization_jsonld_on_public_pages(client):
+    r = await client.get("/")
+    assert '"@type":"Organization"' in r.text
+    assert '"name":"Kaayal"' in r.text
+    # no fabricated rating/address
+    assert "AggregateRating" not in r.text and "address" not in r.text
+
+
+async def test_faqpage_jsonld_valid(client):
+    r = await client.get("/faq")
+    blocks = re.findall(
+        r'<script type="application/ld\+json">(.*?)</script>', r.text, re.DOTALL
+    )
+    data = next(
+        (json.loads(b) for b in blocks if '"FAQPage"' in b), None
+    )
+    assert data, "FAQPage JSON-LD missing"
+    assert data["@type"] == "FAQPage"
+    assert len(data["mainEntity"]) == 7
+    assert all(e["@type"] == "Question" for e in data["mainEntity"])
+
+
+async def test_robots_txt(client):
+    r = await client.get("/robots.txt")
     assert r.status_code == 200
-    assert all_requests(app) == []
+    assert "Disallow: /admin" in r.text
+    assert "Disallow: /api" in r.text
+    assert "Sitemap: http://test/sitemap.xml" in r.text
 
 
-async def test_inquire_unavailable_boat_honest_error(client, app):
-    op = seed_operator(app)
-    seed_boat(app, op, available=False)
-    # boat_id must be guessed — unavailable boats aren't in the select,
-    # but the POST still validates honestly.
-    with Session(app.state.engine) as s:
-        bid = s.exec(select(Boat.id)).one()
-    r = await client.post("/inquire", data={
-        "name": "Anu", "phone": "+91 98765 43210", "boat_id": str(bid),
-        "consent": "yes",
-    })
+async def test_sitemap_xml_lists_public_pages(client):
+    r = await client.get("/sitemap.xml")
     assert r.status_code == 200
-    assert "not available right now" in r.text
-    assert PHONE in r.text and "Paayal can arrange a callback" in r.text
-    assert all_requests(app) == []
+    for p in ("/", "/boats", "/paayal", "/explore",
+              "/before-you-book", "/dtpc-houseboat-counter", "/faq"):
+        assert f"<loc>http://test{p}</loc>" in r.text
+    assert "/admin" not in r.text and "/portal" not in r.text
 
 
-async def test_inquire_unreachable_operator_honest_error(client, app):
-    op = seed_operator(app, reachable=False)
-    boat = seed_boat(app, op)
-    r = await client.post("/inquire", data={
-        "name": "Anu", "phone": "+91 98765 43210", "boat_id": str(boat.id),
-        "consent": "yes",
-    })
-    assert "not available right now" in r.text
-    assert all_requests(app) == []
-
-
-async def test_inquire_general_inquiry_no_boat(client, app):
-    r = await client.post("/inquire", data={
-        "name": "Meera", "phone": "+91 90000 12345", "boat_id": "",
-        "consent": "yes", "group_size": "2",
-    })
-    assert "REQ-" in r.text
-    reqs = all_requests(app)
-    assert len(reqs) == 1 and reqs[0].boat_id is None and reqs[0].source == "web"
-
-
-# --- /join POST ---
-
-async def test_join_creates_pending_operator(client, app):
-    r = await client.post("/join", data={
-        "name": "Kerala Crafts Boats", "phone": "+91 98470 11111",
-    })
-    assert r.status_code == 200
-    assert "pending verification" in r.text
-    with Session(app.state.engine) as s:
-        op = s.exec(select(Operator).where(Operator.source == "web-signup")).one()
-    assert op.approved_at is None
-    assert op.name == "Kerala Crafts Boats"
-
-
-async def test_join_duplicate_phone_friendly_page(client, app):
-    seed_operator(app, phone="+919847011111")
-    r = await client.post("/join", data={
-        "name": "Copycat", "phone": "+91 98470-11111",  # same digits, other format
-    })
-    assert r.status_code == 200
-    assert "already registered" in r.text.lower()
-    with Session(app.state.engine) as s:
-        assert len(s.exec(select(Operator)).all()) == 1
-
-
-async def test_join_bad_phone_no_row(client, app):
-    r = await client.post("/join", data={"name": "X", "phone": "abc"})
-    assert r.status_code == 200
-    with Session(app.state.engine) as s:
-        assert s.exec(select(Operator)).all() == []
+async def test_public_pages_have_one_h1_and_titles(client):
+    for path in ("/", "/boats", "/paayal", "/explore",
+                 "/before-you-book", "/dtpc-houseboat-counter", "/faq"):
+        r = await client.get(path)
+        assert r.status_code == 200, path
+        assert r.text.count("<h1") == 1, path
+        title = re.search(r"<title>(.*?)</title>", r.text).group(1)
+        assert len(title) <= 60, (path, title)
+        desc = re.search(r'name="description" content="(.*?)"', r.text)
+        assert desc and len(desc.group(1)) <= 155, path

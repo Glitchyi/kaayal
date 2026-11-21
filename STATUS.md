@@ -2,37 +2,36 @@
 
 ## Live
 - `https://kaayal.glitchy.systems` — FastAPI via Cloudflare named tunnel `kaayal` (ID `9af85681-71d7-4370-a455-11f14d293d1b`) → `localhost:8000`
-- Phase 1 done: `/health`, `POST /api/voice/reply` (OpenAI behind it), verified live incl. real OpenAI call
-- Phase 2 core done: SQLite (operators/boats/requests), `/api/catalog/boats[/{id}]`, `POST /api/voice/request`, `/portal/<token>`, `/admin?t=<ADMIN_TOKEN>`, landing `/`
-- Tests: 34/34 pass (`cd starter && pytest`)
-- Design: tokens in `app/ui.py`; docs in `starter/docs/design/`; skills in `.devin/skills/` (ui-ux-pro-max, frontend-design, web-design-guidelines); workflow rules in root `AGENTS.md`
-- Env: `starter/.env` (gitignored). Must have OPENAI_API_KEY, SARVAM_TOOL_SHARED_SECRET, ADMIN_TOKEN; set KAAYAL_PHONE_NUMBER for call CTA; ensure KAAYAL_PUBLIC_BASE_URL=https://kaayal.glitchy.systems
-- Processes: uvicorn + cloudflared run as unsupervised background processes — die on reboot/logout
+- Public repo: https://github.com/Glitchyi/kaayal (SSH `git@github.com:Glitchyi/kaayal.git`)
+- Integrated prototype: voice tools (Sarvam → `voice_reply`/catalog/request/callback), SQLite catalog + portal + admin, event-driven callback engine (simulated dialer), WhatsApp demo onboarding (open-wa sidecar)
+- Public site: `/` `/boats` `/paayal` `/explore` `/before-you-book` `/dtpc-houseboat-counter` `/faq` + `robots.txt` `sitemap.xml`. `/inquire` and `/join` were **removed** (no data-storing public forms — inquiries voice-only, onboarding WhatsApp/admin-only)
+- Tests: 113 pass (`cd starter && .venv/bin/python -m pytest -q`)
+- Lighthouse (mobile, home): perf 97, a11y 95
+- Env: `starter/.env` (gitignored): OPENAI_API_KEY, SARVAM_TOOL_SHARED_SECRET, ADMIN_TOKEN, KAAYAL_PHONE_NUMBER (+91 7965861153), KAAYAL_WHATSAPP_NUMBER (+91 9400354625), KAAYAL_PUBLIC_BASE_URL
+- Processes: uvicorn + cloudflared run unsupervised — die on reboot/logout. wa-bot needs `npm start` + paired phone
 
 ## Pending — USER (blocking the live product)
-1. Sarvam dashboard → `starter/docs/sarvam-dashboard-setup.md`: create tools `list_boats`, `get_boat`, `create_booking_request` (voice_reply already done), paste Paayal checklist prompt (§3), test each tool
-2. `/admin?t=<ADMIN_TOKEN>` → create operator → share portal link → verify their boat
-3. Live calls in Malayalam + English: general Q, boat Q, test request → confirm in portal
+1. Sarvam dashboard → `starter/docs/sarvam-dashboard-setup.md`: register all 5 tools (incl. `create_callback_request`), paste Paayal checklist prompt, test each
+2. `/admin?t=<ADMIN_TOKEN>` → approve/verify operators + boats
+3. Live inbound calls in Malayalam + English (general Q, availability Q, inquiry, callback consent)
+4. wa-bot: `cd starter/wa-bot && npm start` + QR scan on the 9400354625 phone
+5. Answer Claude-pack questions: Q02 call recording/retention policy; Q03 Malayalam native reviewer; analytics tool choice (cookieless proposal needed — e.g. Plausible ≈₹800/mo or self-hosted Umami free)
 
 ## Done since last update
-- Git initialized, 2 commits on `main` (latest `57e8706`)
-- PII 90-day anonymization (`app/pii.py` startup sweep + `scripts/anonymize_pii.py`)
-- Operator token reissue + deactivate/reactivate in /admin
-- Portal wa.me "WhatsApp customer" links on confirmed requests only
-- Landing: `Call +91 7965861153` CTA top + separate `WhatsApp +91 9400354625` operator CTA bottom (KAAYAL_PHONE_NUMBER / KAAYAL_WHATSAPP_NUMBER in .env)
-- WhatsApp demo onboarding: `POST /api/ops/wa_onboard` + `wa-bot/` open-wa sidecar (QR pair 9400354625 phone, `npm start`, see `docs/wa-demo.md`). Unofficial API — demo only
-
-## Pending — DEVIN (say go)
-4. Process supervision: launchd for uvicorn + `sudo cloudflared service install`
-5. Optional: deeper editorial pass on landing page
+- Website upgrade per Claude pack: 3 new content pages, SEO (canonical/hreflang/JSON-LD/sitemap/robots), 44px tap targets, honest-split wording (inquiries live, callback dialer simulated), /inquire + /join removed
+- Public repo created + pushed (commit `d742b2a` onward)
+- Full callback engine: durable queue, IST window, retries, expiry, opt-outs, triggers, simulator (`SIM_CALLBACK_OUTCOME`)
+- Portal: reachability/availability/price/amenities; admin: approvals, callback monitor, demo seed/clear
+- PII 90-day anonymization; portal token reissue; operator deactivate/reactivate
 
 ## Deferred (explicit)
-- WhatsApp Business API adapter (full automation — needs Meta credentials; deep links done instead)
+- Real outbound Sarvam calls (adapter stub ready — owner approval + charges required)
+- WhatsApp Business API adapter (open-wa is demo-only; migration path in `docs/wa-demo.md`)
+- Malayalam pages (`/ml/`) — hreflang plumbing ready, DRAFT copy pending native review
 - No payments, Aadhaar/eKYC, paid promotion, subscriptions, P2P
 
 ## Key docs
-- HTML wiki (start here): `starter/docs/wiki/index.html` — index at `starter/docs/README.md`
+- Demo walkthrough: `starter/docs/demo-runbook.md`
+- Claude content pack: `_pack/kaayal-devin-pack/` (Phase-1-era; live truth wins where they differ)
 - Sarvam portal steps: `starter/docs/sarvam-dashboard-setup.md`
-- Sarvam vs OpenAI roles: `starter/docs/how-sarvam-and-openai-fit.md`
-- Operator onboarding: `starter/docs/operator-onboarding.md`
-- Specs: `starter/specs/001-kaayal-telephony/`, `starter/specs/002-kaayal-operations/`
+- Wiki: `starter/docs/wiki/index.html` · Specs (superseded phases): `starter/specs/`

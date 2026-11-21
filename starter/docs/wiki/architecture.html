@@ -68,7 +68,7 @@
 
       <rect x="16" y="216" width="150" height="50" rx="3" fill="#FDFCF9" stroke="#D9E6DE"/>
       <text x="91" y="236" text-anchor="middle" font-size="12" font-weight="500" fill="#123F3C">Tourist — browser</text>
-      <text x="91" y="252" text-anchor="middle" font-size="10" fill="#5E7A74">site · /inquire · /join</text>
+      <text x="91" y="252" text-anchor="middle" font-size="10" fill="#5E7A74">site · public pages</text>
 
       <rect x="16" y="278" width="150" height="50" rx="3" fill="#FDFCF9" stroke="#D9E6DE"/>
       <text x="91" y="298" text-anchor="middle" font-size="12" font-weight="500" fill="#123F3C">Operator &amp; owner</text>
@@ -252,8 +252,8 @@
   <table>
     <thead><tr><th>Surface</th><th>Path</th><th>Auth</th></tr></thead>
     <tbody>
-      <tr><td>Public site</td><td><code>/</code> <code>/boats</code> <code>/paayal</code> <code>/explore</code> <code>/inquire</code> <code>/join</code></td>
-        <td>None — inquiry form writes the same <code>REQ-…</code> rows (<code>source=web</code>); <code>/join</code> is operator self-signup pending admin approval</td></tr>
+      <tr><td>Public site</td><td><code>/</code> <code>/boats</code> <code>/paayal</code> <code>/explore</code> <code>/before-you-book</code> <code>/dtpc-houseboat-counter</code> <code>/faq</code></td>
+        <td>None — content pages only; inquiries are voice-only (<code>REQ-…</code> via the tool); operator onboarding via WhatsApp demo or admin</td></tr>
       <tr><td>Operator portal</td><td><code>/portal/{token}</code></td>
         <td>Unguessable URL; DB stores only the SHA-256 hash. Boats add/delete/availability, reachable toggle, request confirm/decline/block</td></tr>
       <tr><td>Owner admin</td><td><code>/admin?t=…</code></td>

@@ -5,22 +5,18 @@ confirms bookings or prices; demo-seeded inventory carries a DEMO badge;
 WhatsApp onboarding is a demo path; nothing here is a confirmed booking.
 """
 
+import json
 import re
 from urllib.parse import quote
 
-from fastapi import APIRouter, Form, Request
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Request
+from fastapi.responses import HTMLResponse, Response
 from sqlmodel import Session, select
 
-from app.db import Boat, BookingRequest, Operator
-from app.portal import hash_token, new_token
-from app.requests_api import _next_public_id
-from app.ui import esc as _esc, page as _page, status_badge as _status_badge
+from app.db import Boat, Operator
+from app.ui import esc as _esc, page as _page
 
 router = APIRouter()
-
-# Same rule as the voice tool (app/requests_api.py).
-_PHONE_RE = re.compile(r"^[+0-9][0-9 ()-]{5,24}$")
 
 _CONTOURS = """
 <svg aria-hidden="true" viewBox="0 0 720 120" width="100%" height="120"
@@ -50,7 +46,7 @@ def _nav(request: Request) -> str:
         '<a class="navlink" href="/boats">Boats</a>'
         '<a class="navlink" href="/paayal">Meet Paayal</a>'
         '<a class="navlink" href="/explore">Explore</a>'
-        '<a class="navlink" href="/join">For operators</a>'
+        '<a class="navlink" href="/faq">FAQ</a>'
         f"{cta}</nav>"
     )
 
@@ -68,14 +64,42 @@ def _footer(request: Request) -> str:
         '<footer class="site-footer">'
         "<p>Kaayal prototype: the phone line and voice assistant are live; "
         "WhatsApp onboarding is a demo; the catalog shows verified listings; "
-        "nothing on this site is a confirmed booking.</p>"
+        "booking inquiries are live, but Paayal’s return calls are simulated "
+        "(no real outbound call is placed); nothing on this site is a "
+        "confirmed booking.</p>"
         f"{nums_html}</footer>"
     )
 
 
-def _public(request: Request, title: str, body: str, description: str = "") -> HTMLResponse:
-    return HTMLResponse(_page(title, body, description=description,
-                              nav=_nav(request), footer=_footer(request)))
+_ORG_JSONLD = (
+    '<script type="application/ld+json">'
+    '{"@context":"https://schema.org","@type":"Organization",'
+    '"name":"Kaayal","alternateName":"കായൽ",'
+    '"description":"Malayalam-first phone tourism service for Alappuzha, Kerala. '
+    'Paayal is Kaayal\'s AI voice assistant."}'
+    "</script>"
+)
+
+
+def _base_url(request: Request) -> str:
+    s = request.app.state.settings
+    return (getattr(s, "kaayal_public_base_url", "") or str(request.base_url)).rstrip("/")
+
+
+def _public(request: Request, title: str, body: str, description: str = "",
+            head_extra: str = "") -> HTMLResponse:
+    canonical = _base_url(request) + request.url.path
+    return HTMLResponse(_page(
+        title, body, description=description,
+        nav=_nav(request), footer=_footer(request),
+        canonical_url=canonical,
+        head_extra=_ORG_JSONLD + head_extra,
+    ))
+
+
+def _tel_digits(request: Request) -> str:
+    phone = request.app.state.settings.kaayal_phone_number or ""
+    return re.sub(r"\D", "", phone)
 
 
 def _call_cta(request: Request) -> str:
@@ -87,14 +111,6 @@ def _call_cta(request: Request) -> str:
         f'<p style="margin-top:1.25rem"><a class=btn href="tel:+{_esc(digits)}" '
         f'style="text-decoration:none">Call {_esc(phone)}</a></p>'
     )
-
-
-def _callback_hint(request: Request) -> str:
-    """The honest line shown when a boat/operator can't take a request now."""
-    phone = request.app.state.settings.kaayal_phone_number
-    if phone:
-        return f"call {_esc(phone)} and Paayal can arrange a callback"
-    return "call Kaayal and Paayal can arrange a callback"
 
 
 # --- landing ----------------------------------------------------------------
@@ -118,17 +134,21 @@ def landing(request: Request):
         f'href="https://wa.me/{_esc(wa_digits)}?text='
         f'{quote("Hi Kaayal, I run a boat in Alappuzha and want to join as an operator.")}" '
         f'style="text-decoration:none">WhatsApp {_esc(wa)} to start onboarding</a></p>'
-        f'<p class="muted small">No WhatsApp? <a href="/join">Sign up on the web instead</a>.</p>'
         if wa
-        else '<p style="margin-top:.75rem"><a class=btn href="/join" '
-             'style="text-decoration:none">Join as an operator</a></p>'
+        else '<p class="muted small">Operator onboarding is by WhatsApp — '
+             'message the Kaayal onboarding number to start.</p>'
     )
 
+    demo_badge = " <span class='badge wait'>DEMO</span>"
+    avail_ok = "<span class='badge ok'>available</span>"
+    avail_off = "<span class='badge wait'>unavailable — Paayal can call you when it is</span>"
     boats = "".join(
-        f'<div class=card><h3>{_esc(b.name)}</h3>'
+        f'<div class=card><h3>{_esc(b.name)}'
+        f'{demo_badge if b.source == "demo-seed" else ""}</h3>'
         f'<p class=muted style="margin:.15rem 0">with {_esc(op)}'
         f'{f" · up to {_esc(b.capacity)} guests" if b.capacity else ""}'
-        f'{f" · from {_esc(b.embarkation_point)}" if b.embarkation_point else ""}</p></div>'
+        f'{f" · from {_esc(b.embarkation_point)}" if b.embarkation_point else ""}</p>'
+        f'<p style="margin:.4rem 0 0">{avail_ok if b.available else avail_off}</p></div>'
         for b, op in rows
     ) or (
         '<p class=muted>Verified boat listings are being added. '
@@ -139,19 +159,22 @@ def landing(request: Request):
 <h1 style="font-size:2.6rem">The backwaters,<br>a phone call away.</h1>
 <p style="font-size:1.15rem;max-width:34rem">
   Paayal is Kaayal’s voice assistant. Call and ask — in <b>Malayalam</b> or <b>English</b> —
-  about boat operators in Alappuzha, and leave a booking request. The operator calls you
+  about boat operators in Alappuzha, and leave a booking inquiry. The operator calls you
   back to confirm. No app, no forms, no account.</p>
 {call_line}
-<p class=muted small>Prefer the web? <a href="/boats">Browse verified boats</a> or
-<a href="/inquire">send a booking inquiry</a>.</p>
+<p class=muted small>Prefer the web? <a href="/boats">Browse the verified boats</a>
+Paayal can tell you about.</p>
 {_CONTOURS}
 
 <h2>How it works</h2>
 <ol style="padding-left:1.25rem">
   <li style="margin-bottom:.6rem"><b>Call</b> — Paayal answers in your language and can tell
       you about verified boats: capacity, embarkation point, the operator behind each one.</li>
-  <li style="margin-bottom:.6rem"><b>Request</b> — leave your name, number, date, and group size.
-      With your permission, the request goes to the operator.</li>
+  <li style="margin-bottom:.6rem"><b>Inquire</b> — leave your name, number, date, and group size.
+      With your permission, the inquiry goes to the operator.</li>
+  <li style="margin-bottom:.6rem"><b>Not available now?</b> — if a boat is unavailable or its
+      operator can’t be reached, Paayal can call <i>you</i> back when that changes —
+      only if you say yes, and she never calls for anything else.</li>
   <li><b>Confirm</b> — the operator calls you directly to confirm the trip and the price.
       Nothing is booked until they say yes.</li>
 </ol>
@@ -161,8 +184,9 @@ def landing(request: Request):
 <p class=muted small><a href="/boats">See the full list with prices and amenities →</a></p>
 
 <hr class=rule>
-<p class=muted small><b>For operators.</b> Run a boat out of Alappuzha? Message us on WhatsApp
-or sign up here — you list your boats once, get booking requests, and confirm by a call back.</p>
+<p class=muted small><b>For operators.</b> Run a boat out of Alappuzha? Message us on
+WhatsApp — a human verifies you, then you list your boats once, get booking
+inquiries, and confirm by a call back.</p>
 {operator_cta}
 <p class=muted small>Every listing is verified by the Kaayal owner before callers hear about it.
 Kaayal never confirms prices, availability, or bookings on its own — the operator always does.</p>
@@ -170,7 +194,7 @@ Kaayal never confirms prices, availability, or bookings on its own — the opera
     return _public(request,
         "Kaayal — Alappuzha boats by phone",
         body,
-        description="Call Kaayal and talk to Paayal in Malayalam or English: verified Alappuzha boat operators, booking requests, and a call back to confirm.",
+        description="Call Kaayal and talk to Paayal in Malayalam or English: verified Alappuzha boat operators, booking inquiries, and a call back to confirm.",
     )
 
 
@@ -233,7 +257,7 @@ prices come from the operators themselves.</p>
 <p class="muted small">Every listing here is verified by the Kaayal owner.
 <b>Paayal never confirms bookings</b> — after you inquire, the operator calls you
 back and confirms the trip and the price themselves.</p>
-<p><a class=btn href="/inquire" style="text-decoration:none">Send a booking inquiry</a></p>
+<p><a class=btn href="tel:+{_tel_digits(request)}" style="text-decoration:none">Call to send a booking inquiry</a></p>
 """
     return _public(request, "Boats — Kaayal", body,
                    description="Verified Alappuzha boat listings with prices and amenities.")
@@ -261,7 +285,9 @@ def paayal_page(request: Request):
   <li style="margin-bottom:.5rem">Takes booking inquiries: your name, number, preferred
       date, and group size go to the operator <b>only with your consent</b>.</li>
   <li>Arranges consented callbacks — if a boat or operator can’t be reached now,
-      she can call you back when they can.</li>
+      she can call you back when they can. <span class="muted small">In this
+      prototype the return call is simulated; the consent, queue, and
+      availability triggers are real.</span></li>
 </ul>
 
 <h2>What Paayal never does</h2>
@@ -313,251 +339,165 @@ when they call you back.</p>
                    description="The Alappuzha backwaters: trips from Finishing Point and Punnamada, and how Kaayal connects you to verified operators.")
 
 
-# --- /inquire ---------------------------------------------------------------
+# --- /before-you-book ---------------------------------------------------------
 
-def _inquire_boats(session: Session) -> list[tuple[Boat, str]]:
-    """Boats a guest may pick in the form: verified + available, operator active."""
-    return session.exec(
-        select(Boat, Operator.name)
-        .join(Operator, Boat.operator_id == Operator.id)
-        .where(Boat.active, Boat.verified_at.is_not(None), Operator.active, Boat.available)
-        .order_by(Boat.name)
-    ).all()
-
-
-def _inquire_form(request: Request, error: str = "", values: dict | None = None) -> HTMLResponse:
-    v = values or {}
-    engine = request.app.state.engine
-    with Session(engine) as session:
-        options = ['<option value="">No preference — general inquiry</option>']
-        for b, op_name in _inquire_boats(session):
-            sel = ' selected' if str(b.id) == str(v.get("boat_id", "")) else ""
-            options.append(f'<option value="{b.id}"{sel}>{_esc(b.name)} — {_esc(op_name)}</option>')
-    select_html = "".join(options)
-
-    err = f'<div class="error-box" role="alert">{error}</div>' if error else ""
-    checked = " checked" if v.get("consent") else ""
+@router.get("/before-you-book", response_class=HTMLResponse)
+def guide_page(request: Request):
     body = f"""
-<h1>Send a booking inquiry</h1>
-<p class=muted>The same request Paayal takes over the phone, as a form. The
-operator calls you back to confirm — <b>nothing is booked by submitting this</b>.</p>
-{err}
-<form method="post" action="/inquire">
-  <label for="inq-name">Your name</label>
-  <input id="inq-name" name="name" required maxlength="120" autocomplete="name"
-         value="{_esc(v.get('name', ''))}">
-  <label for="inq-phone">Phone number (with country code)</label>
-  <input id="inq-phone" name="phone" type="tel" required maxlength="25" autocomplete="tel"
-         placeholder="+91 …" value="{_esc(v.get('phone', ''))}">
-  <label for="inq-boat">Boat</label>
-  <select id="inq-boat" name="boat_id">{select_html}</select>
-  <label for="inq-date">Preferred date or time <span class=muted>(optional)</span></label>
-  <input id="inq-date" name="preferred_date" maxlength="40"
-         placeholder="e.g. next Saturday morning" value="{_esc(v.get('preferred_date', ''))}">
-  <label for="inq-group">Group size <span class=muted>(1–200, optional)</span></label>
-  <input id="inq-group" name="group_size" inputmode="numeric" maxlength="4"
-         value="{_esc(v.get('group_size', ''))}">
-  <label for="inq-consent" style="margin-top:1.1rem">
-    <input id="inq-consent" type="checkbox" name="consent" value="yes"
-           style="width:auto;margin-right:.4rem"{checked}>
-    I agree to share my name and number with the operator so they can call me back</label>
-  <div style="margin-top:1.25rem"><button type="submit">Send inquiry</button></div>
-</form>
-<p class="muted small">We only pass your details to the operator you inquire about.
-No marketing, no resale — they call you, that’s it.</p>
+<h1>What to ask before you book an Alappuzha houseboat</h1>
+<p class=muted>Five questions that save most of the trouble people run into
+with houseboat bookings. The operator’s answers are theirs to give — these
+are the things worth asking.</p>
+<ol style="padding-left:1.25rem">
+  <li style="margin-bottom:.75rem"><b>Is the boat registered?</b> Ask for the
+      boat’s registration before you pay anything.</li>
+  <li style="margin-bottom:.75rem"><b>What is its Kerala Tourism
+      classification?</b> Houseboats are classified Silver, Gold, or Diamond —
+      ask which yours is and what it means for that boat.
+      <a href="https://www.keralatourism.org/cls/houseboats/Houseboat.htm"
+         target="_blank" rel="noopener">Kerala Tourism’s classification page</a>
+      explains the grades.</li>
+  <li style="margin-bottom:.75rem"><b>What exactly is included?</b> Meals,
+      air-conditioning hours, and cruise timings differ by operator — get them
+      spelled out, not assumed.</li>
+  <li style="margin-bottom:.75rem"><b>What is the price based on?</b> Weekday
+      or peak dates, taxes, and the cancellation terms — ask before, not after.</li>
+  <li><b>Which boat will you actually get?</b> Ask for photos of the actual
+      boat, not a brochure boat.</li>
+</ol>
+<p style="margin-top:1.5rem">Not sure? Ask Paayal.
+<a href="tel:+{_tel_digits(request)}">Call {_esc(request.app.state.settings.kaayal_phone_number)}</a>.</p>
+<p class="muted small">Further reading:
+<a href="https://www.onmanorama.com/travel/travel-news/2026/01/21/kerala-houseboats-defy-guidelines.html"
+   target="_blank" rel="noopener">Onmanorama: Kerala houseboats defy guidelines</a>.</p>
 """
-    return _public(request, "Booking inquiry — Kaayal", body,
-                   description="Send a booking inquiry to a verified Alappuzha boat operator. They call you back to confirm — nothing is booked yet.")
+    return _public(
+        request,
+        "Alappuzha houseboat guide: what to ask before you book",
+        body,
+        description="Classification, registration, what is included, why prices differ. A plain-language checklist for booking an Alleppey houseboat.",
+    )
 
 
-def _inquire_reject(request: Request, message: str) -> HTMLResponse:
-    body = f"""
-<h1>We couldn’t send that inquiry</h1>
-<div class="error-box" role="alert">{message}</div>
-<p class=muted>Your details were not saved or shared.</p>
-<p><a href="/inquire">← Back to the inquiry form</a> · <a href="/boats">Browse boats</a></p>
-"""
-    return _public(request, "Inquiry not sent — Kaayal", body)
+# --- /dtpc-houseboat-counter --------------------------------------------------
 
-
-@router.get("/inquire", response_class=HTMLResponse)
-def inquire_get(request: Request):
-    return _inquire_form(request)
-
-
-@router.post("/inquire", response_class=HTMLResponse)
-def inquire_post(
-    request: Request,
-    name: str = Form(max_length=120),
-    phone: str = Form(max_length=25),
-    boat_id: str | None = Form(default=None),
-    preferred_date: str | None = Form(default=None, max_length=40),
-    group_size: str | None = Form(default=None),
-    consent: str | None = Form(default=None),
-):
-    values = {
-        "name": name, "phone": phone, "boat_id": boat_id or "",
-        "preferred_date": preferred_date or "", "group_size": group_size or "",
-        "consent": bool(consent),
-    }
-    # Mirror the voice flow (app/requests_api.py): consent first, then the
-    # phone check, then boat availability/reachability — no row on rejection.
-    if not consent:
-        return _inquire_form(
-            request,
-            error="Please tick the consent box — we can’t pass your details to an operator without it.",
-            values=values,
-        )
-    if not _PHONE_RE.match(phone.strip()):
-        return _inquire_form(
-            request,
-            error="That phone number doesn’t look right — include the country code, e.g. +91 …",
-            values=values,
-        )
-    gs = None
-    if group_size and group_size.strip():
-        try:
-            gs = int(group_size.strip())
-        except ValueError:
-            gs = -1
-        if not 1 <= gs <= 200:
-            return _inquire_form(
-                request,
-                error="Group size should be a number between 1 and 200.",
-                values=values,
-            )
-    bid = None
-    if boat_id and boat_id.strip():
-        try:
-            bid = int(boat_id.strip())
-        except ValueError:
-            bid = -1
-
-    engine = request.app.state.engine
-    with Session(engine) as session:
-        if bid is not None:
-            boat = session.get(Boat, bid)
-            if not boat or not boat.active or boat.verified_at is None:
-                return _inquire_reject(
-                    request,
-                    "That boat isn’t listed right now — send a general inquiry instead, "
-                    "or pick another boat.",
-                )
-            op = session.get(Operator, boat.operator_id)
-            if not boat.available or (op and not op.reachable):
-                return _inquire_reject(
-                    request,
-                    f"{_esc(boat.name)} is not available right now — "
-                    f"{_callback_hint(request)}.",
-                )
-        req = BookingRequest(
-            public_id=_next_public_id(session),
-            boat_id=bid,
-            customer_name=name.strip(),
-            customer_phone=phone.strip(),
-            consent_given=True,
-            preferred_date=(preferred_date or "").strip() or None,
-            group_size=gs,
-            source="web",
-        )
-        session.add(req)
-        session.commit()
-        public_id = req.public_id
-
-    body = f"""
-<h1>Inquiry sent</h1>
-<p style="font-size:1.15rem">Your reference is <b>{_esc(public_id)}</b> {_status_badge('pending')}</p>
-<p>The operator will call you to confirm the trip and the price —
-<b>nothing is booked yet</b>. If they can’t reach you, nothing happens.</p>
-<p class=muted small>Keep the reference handy if you call us back. Kaayal never
-confirms bookings itself; only the operator does, on the call.</p>
-<p><a href="/boats">← Back to boats</a></p>
-"""
-    return _public(request, "Inquiry sent — Kaayal", body)
-
-
-# --- /join ------------------------------------------------------------------
-
-def _join_form(request: Request, error: str = "", values: dict | None = None) -> HTMLResponse:
-    v = values or {}
-    err = f'<div class="error-box" role="alert">{error}</div>' if error else ""
-    body = f"""
-<h1>Join Kaayal as an operator</h1>
-<p class=muted>Run a boat out of Alappuzha? Leave your name and number. The Kaayal
-team verifies operators by phone before listings go live — after approval we share
-your private portal link, where you add boats and answer booking requests.</p>
-{err}
-<form method="post" action="/join">
-  <label for="join-name">Your name or business name</label>
-  <input id="join-name" name="name" required maxlength="120" autocomplete="organization"
-         value="{_esc(v.get('name', ''))}">
-  <label for="join-phone">Phone number (with country code)</label>
-  <input id="join-phone" name="phone" type="tel" required maxlength="25" autocomplete="tel"
-         placeholder="+91 …" value="{_esc(v.get('phone', ''))}">
-  <div style="margin-top:1.25rem"><button type="submit">Request to join</button></div>
-</form>
-<p class="muted small">This is the web signup — the WhatsApp onboarding you may have
-heard about is a demo. Either way, a human approves every operator.</p>
-"""
-    return _public(request, "For operators — Kaayal", body,
-                   description="Alappuzha boat operators: join Kaayal. Verified by phone, then a private portal link for listings and booking requests.")
-
-
-@router.get("/join", response_class=HTMLResponse)
-def join_get(request: Request):
-    return _join_form(request)
-
-
-@router.post("/join", response_class=HTMLResponse)
-def join_post(
-    request: Request,
-    name: str = Form(max_length=120),
-    phone: str = Form(max_length=25),
-):
-    values = {"name": name, "phone": phone}
-    if not _PHONE_RE.match(phone.strip()):
-        return _join_form(
-            request,
-            error="That phone number doesn’t look right — include the country code, e.g. +91 …",
-            values=values,
-        )
-    want_digits = re.sub(r"\D", "", phone)
-
-    engine = request.app.state.engine
-    with Session(engine) as session:
-        # Match by normalized digits so "+91 94003 54625" == "919400354625".
-        existing = next(
-            (o for o in session.exec(select(Operator)).all()
-             if re.sub(r"\D", "", o.phone) == want_digits),
-            None,
-        )
-        if existing is not None:
-            hint = _callback_hint(request)
-            body = f"""
-<h1>Already registered</h1>
-<p>That number is already on the Kaayal operator list — {hint}
-and we’ll re-issue your portal link.</p>
-<p class=muted small>For safety we never send a portal link twice or to a new
-number without checking it’s really you.</p>
-<p><a href="/">← Back to Kaayal</a></p>
-"""
-            return _public(request, "Already registered — Kaayal", body)
-        op = Operator(
-            name=name.strip(),
-            phone=f"+{want_digits}",
-            token_hash=hash_token(new_token()),
-            approved_at=None,
-            source="web-signup",
-        )
-        session.add(op)
-        session.commit()
-
+@router.get("/dtpc-houseboat-counter", response_class=HTMLResponse)
+def dtpc_page(request: Request):
     body = """
-<h1>Request received</h1>
-<p>Your signup is <b>pending verification</b> — the Kaayal team will call to check
-the details, then share your portal link after approval.</p>
-<p class=muted small>Your portal link is private and unguessable; keep it safe
-when it arrives. It’s the only way into your dashboard.</p>
-<p><a href="/">← Back to Kaayal</a></p>
+<h1>The DTPC houseboat counter — the official route</h1>
+<p style="font-size:1.15rem;max-width:34rem">
+  If you’d rather book through an official channel, the District Tourism
+  Promotion Council (DTPC) runs a <b>pre-paid houseboat counter</b> in
+  Alappuzha. You pay at the counter and are allotted a boat — useful if you
+  want a fixed, government-run option rather than calling operators yourself.</p>
+<p>Kerala Tourism’s houseboat page lists an advance payment of
+<b>₹2,500</b> for booking through this route.
+<a href="https://www.keralatourism.org/houseboat/" target="_blank"
+   rel="noopener">See Kerala Tourism’s houseboat page</a>.</p>
+<p class=muted>Counter details — timings, rates, and how the allotment works —
+change over time. <b>Confirm current details with DTPC</b> before you travel;
+we don’t keep their timings here.</p>
 """
-    return _public(request, "Pending verification — Kaayal", body)
+    return _public(
+        request,
+        "Alappuzha DTPC houseboat counter: how it works",
+        body,
+        description="How the district tourism council's pre-paid houseboat counter works, and when to use it. Check current details with DTPC.",
+    )
+
+
+# --- /faq -------------------------------------------------------------------
+
+_FAQ = [
+    ("Can I book a houseboat through Kaayal?",
+     "Not directly. Paayal takes a booking inquiry — your name, number, date "
+     "and group size go to the operator with your consent — and the operator "
+     "calls you back to confirm. Nothing is booked until they say yes."),
+    ("Does Kaayal show prices?",
+     "Operators can publish a price note on their listing, but Paayal never "
+     "guarantees prices. She explains what affects price — boat, season, "
+     "what’s included — and the operator confirms the figure on the call."),
+    ("Is a boat available on my dates?",
+     "Paayal can tell you what operators have listed as available, but the "
+     "operator always confirms on the call back. If nothing fits, she can "
+     "arrange a callback when something frees up."),
+    ("Which languages does Paayal speak?",
+     "Malayalam and English, including a mix of both in the same call."),
+    ("Do I need an app?",
+     "No. Just call the Kaayal number and talk."),
+    ("Is Kaayal government-approved or operator-verified?",
+     "No. Kaayal is an independent service and does not rank or endorse boats. "
+     "Every listing is verified by the Kaayal owner before callers hear about "
+     "it — to check a boat yourself, ask for its registration and Kerala "
+     "Tourism classification."),
+    ("Are the callbacks real?",
+     "The callback system is real — consent, queueing and availability "
+     "triggers all work. In this prototype Paayal’s return call is simulated "
+     "and no real outbound phone call is placed."),
+]
+
+
+@router.get("/faq", response_class=HTMLResponse)
+def faq_page(request: Request):
+    items = "".join(
+        f"<h3>{_esc(q)}</h3><p class=muted>{_esc(a)}</p>" for q, a in _FAQ
+    )
+    faq_ld = {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+            {
+                "@type": "Question",
+                "name": q,
+                "acceptedAnswer": {"@type": "Answer", "text": a},
+            }
+            for q, a in _FAQ
+        ],
+    }
+    jsonld = f'<script type="application/ld+json">{json.dumps(faq_ld)}</script>'
+    call_line = _call_cta(request)
+    body = f"""
+<h1>Straight answers</h1>
+<p class=muted>What Kaayal does, what it doesn’t, and how your call is handled.</p>
+{items}
+<hr class=rule>
+<p class=muted small>Still unsure? Call and ask Paayal directly — in Malayalam or English.</p>
+{call_line}
+"""
+    return _public(
+        request,
+        "Kaayal FAQ: bookings, prices, languages, calls",
+        body,
+        description="Straight answers on what Kaayal does, what it does not do, and how your call is handled.",
+        head_extra=jsonld,
+    )
+
+
+# --- robots + sitemap ---------------------------------------------------------
+
+_PUBLIC_PATHS = [
+    "/", "/boats", "/paayal", "/explore",
+    "/before-you-book", "/dtpc-houseboat-counter", "/faq",
+]
+
+
+@router.get("/robots.txt")
+def robots(request: Request):
+    base = _base_url(request)
+    return Response(
+        f"User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /portal\n"
+        f"Disallow: /api\n\nSitemap: {base}/sitemap.xml\n",
+        media_type="text/plain",
+    )
+
+
+@router.get("/sitemap.xml")
+def sitemap(request: Request):
+    base = _base_url(request)
+    urls = "".join(f"  <url><loc>{base}{p}</loc></url>\n" for p in _PUBLIC_PATHS)
+    return Response(
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        f"{urls}</urlset>\n",
+        media_type="application/xml",
+    )

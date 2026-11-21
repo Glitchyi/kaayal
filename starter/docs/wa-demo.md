@@ -34,7 +34,7 @@ The bot reads `SARVAM_TOOL_SHARED_SECRET` and `KAAYAL_API_BASE` (default `http:/
 - The bot creates *pending operators + unverified boat rows* — operators get `pending verification` until approved in `/admin`, and nothing is publicly listed until verified.
 - Raw portal tokens never touch the DB (only SHA-256 hashes) and are never logged.
 - Kaayal still sends no messages on the operator's behalf — the bot replies as *the Kaayal number* to onboarding DMs only; customer contact stays manual (portal wa.me links).
-- The same onboarding works **without WhatsApp** at `/join` on the website — the bot is a demo convenience, not the only path.
+- Without WhatsApp, the owner creates the operator directly in `/admin` (the `/join` web form was removed — no data-storing public forms).
 
 ## Migration path → official WhatsApp Business Platform
 
