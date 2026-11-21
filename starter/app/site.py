@@ -95,10 +95,12 @@ def _nav(request: Request) -> str:
     return (
         '<nav class="topnav" aria-label="Main">'
         '<a class="wordmark" href="/">Kaayal <span class="ml" lang="ml">കായൽ</span></a>'
+        '<a class="navlink" href="#how">How it works</a>'
         '<a class="navlink" href="#paayal">Meet Paayal</a>'
         '<a class="navlink" href="#boats">Houseboats</a>'
         '<a class="navlink" href="#explore">Explore</a>'
         '<a class="navlink" href="#before-you-book">Before You Book</a>'
+        '<a class="navlink" href="#dtpc">DTPC counter</a>'
         '<a class="navlink" href="#faq">FAQ</a>'
         f"{cta}</nav>"
     )
@@ -119,12 +121,12 @@ def _footer(request: Request) -> str:
     return (
         '<footer class="site-footer">'
         "<p>Kaayal is a working prototype: inbound calling and booking inquiries "
-        "are live, and the callback system is real — but Paayal’s return calls "
-        "are simulated, so no real outbound call is placed. Nothing on this "
-        "site is a confirmed booking; the operator always confirms. WhatsApp "
-        "messaging runs on WhatsApp Web automation (open-wa) under a "
-        "closed-demo exemption from the open-wa team; the production path is "
-        "the official WhatsApp Business API.</p>"
+        "are live, and the callback system is real — consented callbacks are "
+        "placed through Sarvam’s calling platform during calling hours. Nothing "
+        "on this site is a confirmed booking; the operator always confirms. "
+        "WhatsApp messaging runs on WhatsApp Web automation (whatsapp-web.js) "
+        "for this demo; the production path is the official WhatsApp Business "
+        "API.</p>"
         '<p><a href="#privacy">Privacy &amp; consent</a> · '
         '<a href="#before-you-book">Before you book</a> · '
         '<a href="#dtpc">DTPC counter</a> · '
@@ -159,6 +161,7 @@ def _public(request: Request, title: str, body: str, description: str = "",
         canonical_url=base + request.url.path,
         head_extra=_ORG_JSONLD + head_extra,
         og_image=base + "/static/paayal.png",
+        body_class="wide",
     ))
 
 
@@ -249,9 +252,9 @@ _FAQ = [
      "only ever happen between 09:00 and 18:00 IST, at most twice per "
      "request, and only about the inquiry you consented to."),
     ("Are the callbacks real?",
-     "The callback system is real — consent, queueing and availability "
-     "triggers all work. In this prototype Paayal’s return call is simulated "
-     "and no real outbound phone call is placed."),
+     "Yes — consent, queueing, and availability triggers all work, and "
+     "consented callbacks are placed through Sarvam’s calling platform, only "
+     "between 09:00 and 18:00 IST and at most twice per request."),
 ]
 
 
@@ -284,7 +287,8 @@ def landing(request: Request):
     )
 
     faq_items = "".join(
-        f'<h3 class="faq-q">{_esc(q)}</h3><p class=muted>{_esc(a)}</p>'
+        f'<details class="faq-item"><summary>{_esc(q)}</summary>'
+        f'<p class=muted>{_esc(a)}</p></details>'
         for q, a in _FAQ
     )
     faq_ld = json.dumps({
@@ -299,7 +303,10 @@ def landing(request: Request):
     faq_jsonld = f'<script type="application/ld+json">{faq_ld}</script>'
 
     body = f"""
-<h1 style="font-size:2.6rem">The backwaters,<br>a phone call away.</h1>
+<div class="hero">
+<div>
+<p class=kick>Alappuzha · Kerala</p>
+<h1>The backwaters,<br>a phone call away.</h1>
 <p class=lead>
   Paayal is Kaayal’s voice assistant. Call and ask — in <b>Malayalam</b> or <b>English</b> —
   about boat operators in Alappuzha, and leave a booking inquiry. The operator calls you
@@ -307,16 +314,23 @@ def landing(request: Request):
 {call_line}
 <p class=muted small>Prefer to scroll? <a href="#boats">See the boats</a>
 Paayal can tell you about.</p>
+</div>
+<figure class="hero-art" data-plx="0.45">
+  <span class="avatar-wrap"><img src="/static/paayal.png" alt="Paayal — Kaayal’s voice assistant" width="172" height="172"></span>
+  <figcaption class="muted small">Paayal answers — Malayalam first, English too.</figcaption>
+</figure>
+</div>
 {_SCENE}
 
 <section id="how">
 <p class=kick>How it works</p>
-<ol style="padding-left:1.25rem">
-  <li style="margin-bottom:.6rem"><b>Call</b> — Paayal answers in your language and can tell
-      you about reviewed boats: capacity, embarkation point, the operator behind each one.</li>
-  <li style="margin-bottom:.6rem"><b>Inquire</b> — leave your name, number, date, and group size.
+<h2>Four steps, one phone call</h2>
+<ol class=flow>
+  <li><b>Call</b> — Paayal answers in your language and can tell
+      you about reviewed boats: capacity, boarding point, the operator behind each one.</li>
+  <li><b>Inquire</b> — leave your name, number, date, and group size.
       With your permission, the inquiry goes to the operator.</li>
-  <li style="margin-bottom:.6rem"><b>Not available now?</b> — if a boat is unavailable or its
+  <li><b>Not available now?</b> — if a boat is unavailable or its
       operator can’t be reached, Paayal can call <i>you</i> back when that changes —
       only if you say yes, and she never calls for anything else.</li>
   <li><b>Confirm</b> — the operator calls you directly to confirm the trip and the price.
@@ -327,41 +341,56 @@ Paayal can tell you about.</p>
 <section id="paayal">
 <p class=kick>Meet Paayal · <span class="ml" lang="ml">പായൽ</span></p>
 <h2>The voice on the other end</h2>
-<img src="/static/paayal.png" alt="Paayal — Kaayal’s voice assistant"
-     width="140" height="140" style="border-radius:50%;margin:.25rem 0 1rem;
-     border:2px solid var(--line);float:right;margin-left:1rem">
-<p>Paayal is Kaayal’s voice assistant — a <b>Malayalam-first</b> voice on the other
-end of the Kaayal phone line. She also speaks English. You talk, she answers;
-there is nothing to install and nothing to type.</p>
-<h3>What Paayal does</h3>
-<ul style="padding-left:1.25rem">
-  <li style="margin-bottom:.5rem">Answers questions about boat trips out of Alappuzha,
-      in Malayalam or English.</li>
-  <li style="margin-bottom:.5rem">Describes <b>reviewed</b> boats — capacity, embarkation
-      point, amenities, and the operator behind each listing.</li>
-  <li style="margin-bottom:.5rem">Takes booking inquiries: your name, number, preferred
-      date, and group size go to the operator <b>only with your consent</b>.</li>
-  <li>Arranges consented callbacks — if a boat or operator can’t be reached now,
-      she can call you back when they can. <span class="muted small">In this
-      prototype the return call is simulated; the consent, queue, and
-      availability triggers are real.</span></li>
-</ul>
-<h3>What Paayal never does</h3>
-<ul style="padding-left:1.25rem">
-  <li style="margin-bottom:.5rem"><b>Confirms bookings.</b> Only the operator confirms,
-      by calling you back. Until then nothing is booked.</li>
-  <li style="margin-bottom:.5rem"><b>Confirms prices.</b> Quoted prices come from the
-      operator; Paayal repeats them, she doesn’t guarantee them.</li>
-  <li><b>Takes payments.</b> There is no checkout, no wallet, no card on file —
-      you settle directly with the operator.</li>
-</ul>
+<div class="paayal-fig">
+  <div class="paayal-portrait">
+    <span class="avatar-wrap"><img src="/static/paayal.png" alt="" width="184" height="184"></span>
+    <svg class="voicewave" width="46" height="24" viewBox="0 0 46 24" aria-hidden="true">
+      <rect x="0" y="8" width="3" height="8" rx="1.5" fill="#267A73"/>
+      <rect x="5" y="4" width="3" height="16" rx="1.5" fill="#267A73"/>
+      <rect x="10" y="7" width="3" height="10" rx="1.5" fill="#123F3C"/>
+      <rect x="15" y="2" width="3" height="20" rx="1.5" fill="#267A73"/>
+      <rect x="20" y="6" width="3" height="12" rx="1.5" fill="#123F3C"/>
+      <rect x="25" y="3" width="3" height="18" rx="1.5" fill="#267A73"/>
+      <rect x="30" y="8" width="3" height="8" rx="1.5" fill="#123F3C"/>
+      <rect x="35" y="5" width="3" height="14" rx="1.5" fill="#267A73"/>
+      <rect x="40" y="9" width="3" height="6" rx="1.5" fill="#267A73"/>
+    </svg>
+    <p class="ml greeting" lang="ml">നമസ്കാരം — ഞാൻ പായൽ.</p>
+    <p class="muted small">Namaskaram — I’m Paayal.</p>
+  </div>
+  <div>
+    <p>Paayal is Kaayal’s voice assistant — a <b>Malayalam-first</b> voice on the other
+    end of the Kaayal phone line. She also speaks English. You talk, she answers;
+    there is nothing to install and nothing to type.</p>
+    <h3>What Paayal does</h3>
+    <ul style="padding-left:1.25rem">
+      <li style="margin-bottom:.5rem">Answers questions about boat trips out of Alappuzha,
+          in Malayalam or English.</li>
+      <li style="margin-bottom:.5rem">Describes <b>reviewed</b> boats — capacity, boarding
+          point, amenities, and the operator behind each listing.</li>
+      <li style="margin-bottom:.5rem">Takes booking inquiries: your name, number, preferred
+          date, and group size go to the operator <b>only with your consent</b>.</li>
+      <li>Arranges consented callbacks — if a boat or operator can’t be reached now,
+          she can call you back when they can, through Sarvam’s calling platform.</li>
+    </ul>
+    <h3>What Paayal never does</h3>
+    <ul style="padding-left:1.25rem">
+      <li style="margin-bottom:.5rem"><b>Confirms bookings.</b> Only the operator confirms,
+          by calling you back. Until then nothing is booked.</li>
+      <li style="margin-bottom:.5rem"><b>Confirms prices.</b> Quoted prices come from the
+          operator; Paayal repeats them, she doesn’t guarantee them.</li>
+      <li><b>Takes payments.</b> There is no checkout, no wallet, no card on file —
+          you settle directly with the operator.</li>
+    </ul>
+  </div>
+</div>
 <h3>Things you can ask her</h3>
-<ul style="padding-left:1.25rem">
-  <li style="margin-bottom:.5rem">“What boats go out of Alappuzha this weekend?”</li>
-  <li style="margin-bottom:.5rem">“Is anything available for six people on Saturday?”</li>
-  <li style="margin-bottom:.5rem">“What should I check before I book a houseboat?”</li>
-  <li>“Call me back when that boat is free.”</li>
-</ul>
+<div class="asks">
+  <p class=ask>“What boats go out of Alappuzha this weekend?”</p>
+  <p class=ask>“Is anything available for six people on Saturday?”</p>
+  <p class=ask>“What should I check before I book a houseboat?”</p>
+  <p class=ask>“Call me back when that boat is free.”</p>
+</div>
 <p class=muted small>Paayal shares your name and number with an operator only after
 you say yes on the call. Say no, and nothing is shared.
 <a href="#privacy">How your details are handled →</a></p>
@@ -387,7 +416,7 @@ See <a href="#dtpc">the DTPC pre-paid counter</a>.</p>
 <section id="explore">
 <p class=kick>Explore Alappuzha</p>
 <h2>The backwaters</h2>
-<p>Alappuzha — older maps say Alleppey — is a canal town on the edge of Vembanad,
+<p class=dropcap>Alappuzha — older maps say Alleppey — is a canal town on the edge of Vembanad,
 Kerala’s largest lake. Behind the town, lakes, lagoons, and narrow canals link
 together into the waterways people call the backwaters.</p>
 <h3>Trips from town</h3>
@@ -397,7 +426,9 @@ shikaras for an hour or two through the canals, as well as the larger
 kettuvallam houseboats that cruise Vembanad — some for a day, some overnight.</p>
 <p>What you see depends on the route: paddy fields below the waterline, village
 jetties, toddy shops, and long open stretches of lake. Morning and late-afternoon
-light are the kindest.</p>
+light are the kindest.
+<a href="https://www.keralatourism.org/districts/alappuzha/" target="_blank"
+   rel="noopener">Kerala Tourism’s Alappuzha guide</a> has the district overview.</p>
 <h3>Before you go</h3>
 <p>Trip length, route, and price vary by boat and by season, and they are the
 operator’s call — not ours. We don’t publish timings or tariffs here. Paayal can
@@ -410,19 +441,19 @@ when they call you back.</p>
 <p class=kick>Before you book</p>
 <h2>Five questions worth asking</h2>
 <p class=muted>Before you pay a deposit — the operator’s answers are theirs to give.</p>
-<ol style="padding-left:1.25rem">
-  <li style="margin-bottom:.75rem"><b>Is the boat registered?</b> Ask for the
+<ol class=flow>
+  <li><b>Is the boat registered?</b> Ask for the
       boat’s registration before you pay anything.</li>
-  <li style="margin-bottom:.75rem"><b>What is its Kerala Tourism
+  <li><b>What is its Kerala Tourism
       classification?</b> Houseboats are classified Silver, Gold, or Diamond —
       ask which yours is and what it means for that boat.
       <a href="https://www.keralatourism.org/cls/houseboats/Houseboat.htm"
          target="_blank" rel="noopener">Kerala Tourism’s classification page</a>
       explains the grades.</li>
-  <li style="margin-bottom:.75rem"><b>What exactly is included?</b> Meals,
+  <li><b>What exactly is included?</b> Meals,
       air-conditioning hours, and cruise timings differ by operator — get them
       spelled out, not assumed.</li>
-  <li style="margin-bottom:.75rem"><b>What is the price based on?</b> Weekday
+  <li><b>What is the price based on?</b> Weekday
       or peak dates, taxes, and the cancellation terms — ask before, not after.</li>
   <li><b>Which boat will you actually get?</b> Ask for photos of the actual
       boat, not a brochure boat.</li>
@@ -482,18 +513,18 @@ Nobody else.</p>
 <p>A callback is only queued after you agree on the call. Calls are attempted
 only between <b>09:00 and 18:00 IST</b>, at most twice per request, and expire
 after about a week. Say “don’t call me” to Paayal at any time — on any call —
-and all pending callbacks for your number stop. In this prototype the return
-call itself is simulated; the consent and queue rules described here are real.</p>
+and all pending callbacks for your number stop. Return calls are placed through
+Sarvam’s calling platform; the consent and queue rules here govern when.</p>
 <h3>How long we keep it</h3>
 <p>Your name, phone number, and notes are <b>anonymized after 90 days</b>. The
 inquiry keeps only its reference number and status afterwards.</p>
 <h3>Calls, recordings, transcripts</h3>
 <p>Kaayal does not store call recordings or transcripts of your inbound calls
-in its own database. Simulated demo callbacks keep a script of what Paayal
-would have said — clearly marked as simulation, not a real conversation. Calls
-are carried by Sarvam’s voice platform; whether they retain call audio is
-governed by Sarvam’s policies and the account’s settings — that part is outside
-Kaayal’s own systems and we are not able to state it here.</p>
+in its own database. Callback attempts store only their outcome (answered, no
+answer, opted out), not call audio. Calls are carried by Sarvam’s voice
+platform; whether they retain call audio is governed by Sarvam’s policies and
+the account’s settings — that part is outside Kaayal’s own systems and we are
+not able to state it here.</p>
 <h3>This website</h3>
 <p>No cookies, no analytics, no trackers, no forms that collect your details.
 Just links to call or message us.</p>

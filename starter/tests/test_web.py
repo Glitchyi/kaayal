@@ -77,7 +77,7 @@ async def test_landing_uses_shared_nav_and_footer(client):
     for frag in ("#paayal", "#boats", "#explore", "#before-you-book", "#faq"):
         assert f'href="{frag}"' in r.text
     assert "Nothing on this site is a confirmed booking" in r.text
-    assert "return calls are simulated" in r.text  # honesty line
+    assert "Sarvam’s calling platform" in r.text  # disclosure of who places callbacks
     assert f'tel:+{"".join(c for c in PHONE if c.isdigit())}' in r.text
 
 
@@ -96,10 +96,10 @@ async def test_landing_shows_availability_and_demo_badges(client, app):
     assert "unavailable" in r.text
 
 
-async def test_landing_callback_wording_is_honest_about_simulation(client):
+async def test_landing_callback_wording_discloses_who_calls(client):
     r = await client.get("/")
     assert "Paayal can call <i>you</i> back" in r.text  # the offer exists
-    assert "return calls are simulated" in r.text      # footer disclosure
+    assert "Sarvam’s calling platform" in r.text         # footer disclosure
 
 
 async def test_boats_section_lists_verified_boat(client, app):

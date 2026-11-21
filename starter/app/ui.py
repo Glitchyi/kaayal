@@ -77,7 +77,7 @@ h2 {{ font-size: 1.35rem; font-weight: 500; margin: 2.5rem 0 .75rem; }}
 h3 {{ font-size: 1.05rem; font-weight: 500; margin: 0 0 .5rem; font-family: {BODY_FONT}; }}
 a {{ color: var(--teal); text-underline-offset: .18em; }}
 a:hover {{ color: var(--lagoon); }}
-a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {{
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible {{
   outline: 2px solid var(--teal); outline-offset: 2px;
 }}
 table {{ border-collapse: collapse; width: 100%; font-size: .95rem; }}
@@ -132,6 +132,69 @@ ol ::marker {{ color: var(--teal); font-family: {DISPLAY_FONT}; }}
 .kick {{
   letter-spacing: .14em; text-transform: uppercase; font-size: .72rem;
   font-weight: 600; color: #8A5F33; margin: 0 0 .2rem;
+}}
+/* --- editorial landing ---------------------------------------------------- */
+.hero {{ display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 1.5rem 3rem; align-items: center; }}
+.hero h1 {{ font-size: clamp(2.4rem, 5.5vw, 3.4rem); margin: .3rem 0 .9rem; }}
+.hero-art {{ margin: 0; text-align: center; }}
+.hero-art figcaption {{ margin-top: 1rem; }}
+.avatar-wrap {{ position: relative; display: inline-block; }}
+.avatar-wrap img {{ display: block; border-radius: 50%; border: 2px solid var(--mist); background: #FDFCF9; }}
+.avatar-wrap::after {{
+  content: ""; position: absolute; inset: -9px; border-radius: 50%;
+  border: 2px solid transparent; border-top-color: var(--sand);
+  transform: rotate(-28deg); pointer-events: none;
+}}
+.paayal-fig {{ display: grid; grid-template-columns: auto 1fr; gap: 2rem; align-items: start; margin: 1rem 0 1.75rem; }}
+.paayal-portrait {{ text-align: center; }}
+.paayal-portrait .voicewave {{ display: block; margin: 1.1rem auto .35rem; }}
+.paayal-portrait .greeting {{ font-size: 1.15rem; color: var(--lagoon); margin: .45rem 0 0; }}
+.paayal-portrait .muted {{ margin-top: .15rem; }}
+.voicewave rect {{ transform-box: fill-box; transform-origin: center; }}
+.asks {{ display: grid; grid-template-columns: repeat(auto-fit,minmax(14rem,1fr)); gap: .6rem; margin: .6rem 0 1rem; }}
+.ask {{
+  font-family: {DISPLAY_FONT}; font-size: 1.05rem; color: var(--lagoon); margin: 0;
+  padding: .6rem .9rem; border-left: 3px solid var(--sand);
+  background: #FDFCF9; border-radius: .25rem;
+}}
+.flow {{ list-style: none; padding: 0; margin: 1rem 0 1.5rem; counter-reset: step; max-width: 40rem; }}
+.flow li {{ counter-increment: step; position: relative; padding: .45rem 0 .45rem 2.5rem;
+  border-left: 1px solid var(--line); margin-left: .7rem; }}
+.flow li::before {{
+  content: counter(step,decimal-leading-zero); position: absolute; left: -.85rem; top: .55rem;
+  width: 1.7rem; height: 1.7rem; background: var(--ivory); border: 1px solid var(--line);
+  border-radius: 50%; text-align: center; font-size: .7rem; line-height: 1.7rem;
+  color: var(--teal); font-weight: 500;
+}}
+details.faq-item {{ border-bottom: 1px solid var(--line); padding: .55rem 0; max-width: 42rem; }}
+details.faq-item summary {{
+  cursor: pointer; font-weight: 500; font-size: 1.02rem; color: var(--ink);
+  list-style: none; position: relative; padding: .35rem 0 .35rem 1.5rem;
+}}
+details.faq-item summary::-webkit-details-marker {{ display: none; }}
+details.faq-item summary::before {{
+  content: "+"; position: absolute; left: .2rem; color: var(--teal); font-weight: 500;
+  transition: transform .15s ease;
+}}
+details.faq-item[open] summary::before {{ transform: rotate(45deg); }}
+details.faq-item p {{ margin: .3rem 0 .8rem 1.5rem; }}
+.dropcap::first-letter {{
+  font-family: {DISPLAY_FONT}; font-size: 3.1em; float: left; line-height: .82;
+  padding: .06em .12em 0 0; color: var(--lagoon);
+}}
+section > p, section > ul {{ max-width: 42rem; }}
+@media (max-width: 700px) {{
+  .hero {{ grid-template-columns: 1fr; }}
+  .hero-art {{ text-align: left; }}
+  .paayal-fig {{ grid-template-columns: 1fr; }}
+  .paayal-portrait {{ text-align: left; }}
+  .paayal-portrait .voicewave {{ margin-left: 0; }}
+}}
+@media (max-width: 640px) {{
+  .topnav {{ flex-wrap: nowrap; overflow-x: auto; gap: .95rem; scrollbar-width: none; }}
+  .topnav::-webkit-scrollbar {{ display: none; }}
+  .topnav .wordmark {{ font-size: 1.2rem; }}
+  .topnav a.navlink {{ white-space: nowrap; }}
 }}
 html {{ scroll-behavior: smooth; }}
 section[id] {{ scroll-margin-top: 5.5rem; margin-top: 3.25rem; }}
@@ -198,17 +261,31 @@ code {{
 _MOTION = """
 <script type="module">
 try {
-  const {animate, inView} =
+  const {animate, inView, scroll} =
     await import("https://cdn.jsdelivr.net/npm/motion@12.43.0/+esm");
   if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
     const ease = [.22, .61, .36, 1];
+    const narrow = matchMedia("(max-width:640px)").matches;
     const h1 = document.querySelector("main h1");
     if (h1) animate(h1, {opacity: [0, 1], y: [18, 0]}, {duration: .55, easing: ease});
     document.querySelectorAll("main .lead, main .call_line").forEach((el, i) =>
       animate(el, {opacity: [0, 1], y: [14, 0]}, {duration: .55, delay: .12 + i * .1, easing: ease}));
-    inView("main h2, main h3, main .card, main ol li",
+    inView("main h2, main h3, main .card, main ol li, main .ask, main .faq-item",
       (el) => animate(el, {opacity: [0, 1], y: [12, 0]}, {duration: .45, easing: ease}),
       {amount: .25});
+    // Scroll-linked parallax on tagged elements — transform only, damped on mobile.
+    document.querySelectorAll("[data-plx]").forEach((el) => {
+      const d = parseFloat(el.dataset.plx || "0") * (narrow ? .35 : 1);
+      if (d) scroll(animate(el, {y: [d * 55, -d * 55]}),
+                    {target: el, offset: ["start end", "end start"]});
+    });
+    // Paayal: gentle container float + decorative waveform bars (container only —
+    // the illustration itself is untouched).
+    const med = document.querySelector(".avatar-wrap");
+    if (med) animate(med, {y: [0, -5, 0]}, {duration: 5, repeat: Infinity, easing: "ease-in-out"});
+    document.querySelectorAll(".voicewave rect").forEach((b, i) =>
+      animate(b, {scaleY: [.35, 1, .35]},
+              {duration: 1.3 + i * .07, repeat: Infinity, easing: "ease-in-out"}));
     document.querySelectorAll("svg.contours").forEach((svg) => {
       const paths = svg.querySelectorAll("path");
       paths.forEach((p, i) =>

@@ -21,5 +21,6 @@ Single integrated prototype — phase gates were lifted by the owner. Historical
 ## Workflow
 
 - Tests: `cd starter && .venv/bin/python -m pytest -q` — keep everything green.
+- Wiki freshness guard: `.githooks/pre-commit` (enabled via `core.hooksPath=.githooks`) blocks commits that change routes/settings in `starter/app` without a `starter/docs/wiki` file staged. Bypass code-only commits with `SKIP_WIKI_CHECK=1 git commit ...`.
 - New boat/operator state changes that affect availability must fire the callbacks engine (`fire_boat_available`, `fire_operator_reachable`).
 - At each milestone report: what worked, actual evidence, what is untested, and the next manual action. No false success reports.

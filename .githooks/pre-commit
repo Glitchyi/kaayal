@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Wiki freshness guard. The wiki (starter/docs/wiki/*.html) documents routes,
+# env/settings and tool behavior — when a commit changes those in starter/app
+# but stages no wiki file, remind the committer before it lands.
+#
+# Deliberately narrow: it only fires when the staged diff adds/changes route
+# decorators, router prefixes, or Settings-style fields (the things the wiki
+# records). Pure logic/bugfix commits pass untouched.
+#
+# Bypass when a change is genuinely invisible to the docs:
+#     SKIP_WIKI_CHECK=1 git commit ...
+
+set -euo pipefail
+
+[ "${SKIP_WIKI_CHECK:-0}" = "1" ] && exit 0
+
+changed="$(git diff --cached --name-only)"
+[ -z "$changed" ] && exit 0
+
+# Only commits that touch the app code matter.
+grep -qE '^starter/app/.*\.py$' <<<"$changed" || exit 0
+
+# Wiki staged alongside code -> we are done.
+grep -qE '^starter/docs/wiki/' <<<"$changed" && exit 0
+
+# Fire only on wiki-visible surface changes: new/changed routes, router
+# prefixes, or pydantic Settings-style field lines.
+if git diff --cached -U0 -- 'starter/app/*.py' \
+    | grep -v '^+++' \
+    | grep -qE '^\+.*(@router\.|@app\.|prefix=|[a-z_]+: [A-Za-z_\[\]].*=[^=])'; then
+  cat >&2 <<'EOF'
+Wiki check: this commit changes routes or settings in starter/app but no
+starter/docs/wiki page is staged — the wiki may go stale.
+
+Update the relevant wiki page(s) in starter/docs/wiki/*.html, or if this
+change is genuinely invisible to the docs, bypass with:
+
+    SKIP_WIKI_CHECK=1 git commit ...
+EOF
+  exit 1
+fi
+exit 0
