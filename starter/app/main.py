@@ -71,6 +71,7 @@ def create_app(settings: Settings | None = None, responder=None) -> FastAPI:
                         app.state.engine,
                         app.state.callback_provider,
                         ignore_window=settings.demo_ignore_call_window,
+                        settings=settings,
                     )
                     if n:
                         logger.info("callback_engine attempts=%d", n)
@@ -102,7 +103,9 @@ def create_app(settings: Settings | None = None, responder=None) -> FastAPI:
     @app.middleware("http")
     async def body_size_limit(request: Request, call_next):
         content_length = request.headers.get("content-length")
-        if content_length and content_length.isdigit():
+        # Voice-note audio posts are larger than JSON; that endpoint has its
+        # own payload bound in the schema.
+        if request.url.path != "/api/ops/wa_transcribe" and content_length and content_length.isdigit():
             if int(content_length) > settings.max_body_bytes:
                 return _error(413, "request_too_large")
         return await call_next(request)

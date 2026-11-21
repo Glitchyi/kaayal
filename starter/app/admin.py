@@ -283,6 +283,7 @@ def run_due_callbacks(request: Request, t: str | None = None):
         request.app.state.callback_provider,
         force=True,
         ignore_window=request.app.state.settings.demo_ignore_call_window,
+        settings=request.app.state.settings,
     )
     return RedirectResponse(f"/admin?t={t}", status_code=303)
 

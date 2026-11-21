@@ -26,10 +26,10 @@
 - Integrated prototype: voice tools (Sarvam → `voice_reply`/catalog/request/callback), SQLite catalog + portal + admin, event-driven callback engine (simulated dialer), WhatsApp demo onboarding (open-wa sidecar)
 - **DEMO DECISION (owner, 2026-11-22): tool-token auth is OFF** — `require_tool_auth` early-returns; `/api/*` works with no `X-Kaayal-Tool-Token`. Do not re-enable or write auth-expecting tests without explicit owner approval.
 - Public site: `/` `/boats` `/paayal` `/explore` `/before-you-book` `/dtpc-houseboat-counter` `/faq` + `robots.txt` `sitemap.xml`. `/inquire` and `/join` were **removed** (no data-storing public forms — inquiries voice-only, onboarding WhatsApp/admin-only)
-- Tests: 113 pass (`cd starter && .venv/bin/python -m pytest -q`)
+- Tests: 149 pass (`cd starter && .venv/bin/python -m pytest -q`)
 - Lighthouse (mobile, home): perf 97, a11y 95
 - Env: `starter/.env` (gitignored): OPENAI_API_KEY, SARVAM_TOOL_SHARED_SECRET, ADMIN_TOKEN, KAAYAL_PHONE_NUMBER (+91 7965861153), KAAYAL_WHATSAPP_NUMBER (+91 9400354625), KAAYAL_PUBLIC_BASE_URL
-- Processes: **migrating to docker compose** — `starter/compose.yaml` runs app + wa-bot + cloudflared with restart policies and named volumes (`kaayal-data` for SQLite, `wa-session` for the open-wa pairing). Runtime: colima via `brew services`. Once live, the native uvicorn/cloudflared/`npm start` are replaced by `docker compose up -d` in `starter/`. NOTE TO OTHER AGENTS: bot.mjs now exits on UNPAIRED/CONFLICT so the restart policy re-pairs instead of sitting dead.
+- Processes: **docker compose is the runtime** — `starter/compose.yaml` runs app + wa-bot + cloudflared with restart policies and named volumes (`kaayal-data` for SQLite, `wa-session` for open-wa). Runtime: colima via `brew services`. The native uvicorn/cloudflared/`npm start` processes are retired — use `docker compose up -d` in `starter/`. NOTE TO OTHER AGENTS: (a) bot.mjs exits on UNPAIRED/CONFLICT so the restart policy re-pairs instead of sitting dead; (b) the Chrome profile is persisted on `wa-session` via `--user-data-dir` — sessions now survive container recreates without a rescan (open-wa's own data.json restore is unreliable, don't rely on it).
 
 ## Pending — USER (blocking the live product)
 1. Sarvam dashboard → `starter/docs/sarvam-dashboard-setup.md`: register all 5 tools (incl. `create_callback_request`), paste Paayal checklist prompt, test each
@@ -39,6 +39,13 @@
 5. Answer Claude-pack questions: Q02 call recording/retention policy; Q03 Malayalam native reviewer; analytics tool choice (cookieless proposal needed — e.g. Plausible ≈₹800/mo or self-hosted Umami free)
 
 ## Done since last update
+- WhatsApp onboarding hardening: repeat-DM fast path (`/api/ops/wa_reissue` — welcome back + fresh link, no re-questionnaire); admin approval auto-pushes the portal link over WhatsApp (`wa_notify.py` → bot `/send` on :8090); booking requests ping the boat's operator over WhatsApp (no customer PII in the message)
+- Voice notes in onboarding: bot decrypts ptt/audio → `/api/ops/wa_transcribe` (whisper-1, key stays server-side) → transcript feeds the same flow
+- Confirmation step: boat info collected as `name, type, embarkation`, summarised back, registers only on YES
+- `Boat.boat_type` added (portal form + catalog output/search); `list_boats` returns `{"boats":[...]}` (Sarvam template → `{{boats}}`), `q` understands group sizes and falls back to full catalog on a miss
+- Booking/callback payloads coerce `""` vars to absent (Sarvam empty-var quirk → no more 400s)
+- open-wa `/send` resolves existing chats first — free tier can't start new chats
+- Sarvam setup doc rewritten (`docs/sarvam-dashboard-setup.md`): tools table, prompt w/ off-topic 3-strike hangup, troubleshooting
 - Website upgrade per Claude pack: 3 new content pages, SEO (canonical/hreflang/JSON-LD/sitemap/robots), 44px tap targets, honest-split wording (inquiries live, callback dialer simulated), /inquire + /join removed
 - Public repo created + pushed (commit `d742b2a` onward)
 - Full callback engine: durable queue, IST window, retries, expiry, opt-outs, triggers, simulator (`SIM_CALLBACK_OUTCOME`)

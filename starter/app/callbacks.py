@@ -56,6 +56,18 @@ class SimulatedProvider:
 
     def place(self, cb: CallbackRequest, context: dict) -> tuple[str, list[dict]]:
         what = context.get("what") or "your earlier request"
+        if cb.reason == "booking_confirmed":
+            op_name = context.get("operator_name") or "the operator"
+            paayal = [
+                {"who": "paayal", "text": "Namaskaram, this is Paayal, Kaayal's AI assistant. Is this a good time?"},
+                {"who": "paayal", "text": f"Good news — your request {context.get('request_ref') or ''} for {what} is confirmed. {op_name} will call you shortly to settle the details."},
+            ]
+            if self.outcome == "no_answer":
+                return "no_answer", paayal[:1]
+            return self.outcome, paayal + [
+                {"who": "customer", "text": "Okay, thank you." if self.outcome == "interested" else "I'm not interested anymore."},
+                {"who": "paayal", "text": "Understood — the operator has your request. Have a good day."},
+            ]
         if cb.reason == "operator_unreachable":
             why = f"the operator for {what} is reachable again"
         else:
@@ -247,6 +259,26 @@ def fire_operator_reachable(session: Session, op: Operator) -> int:
     return n
 
 
+def fire_booking_confirmed(session: Session, req: BookingRequest, boat: Boat, op: Operator) -> CallbackRequest | None:
+    """Booking confirmed → queue a notify call to the customer, due now.
+    If the call never connects, process_due_callbacks WhatsApps them instead."""
+    cb = create_callback(
+        session,
+        customer_name=req.customer_name,
+        customer_phone=req.customer_phone,
+        reason="booking_confirmed",
+        boat_id=boat.id,
+        operator_id=op.id,
+        keywords=req.public_id,
+        preferred_date=req.preferred_date,
+    )
+    if cb:
+        _requeue(cb)
+        session.add(cb)
+        session.commit()
+    return cb
+
+
 # ---------------------------------------------------------------------------
 # Engine
 # ---------------------------------------------------------------------------
@@ -256,6 +288,14 @@ def _context_for(session: Session, cb: CallbackRequest) -> dict:
     if cb.boat_id:
         boat = session.get(Boat, cb.boat_id)
         what = f"the boat '{boat.name}'" if boat else None
+    if cb.reason == "booking_confirmed":
+        op = session.get(Operator, cb.operator_id) if cb.operator_id else None
+        # keywords carries the booking public_id for notify callbacks.
+        return {
+            "what": what or "your boat trip",
+            "operator_name": op.name if op else None,
+            "request_ref": cb.keywords,
+        }
     if not what and cb.keywords:
         what = f"'{cb.keywords}'"
     if not what:
@@ -281,6 +321,25 @@ def _convert_to_inquiry(session: Session, cb: CallbackRequest) -> None:
     cb.status = "converted"
 
 
+def _wa_fallback(session: Session, cb: CallbackRequest, settings) -> None:
+    """Call couldn't connect — push the confirmation over WhatsApp instead."""
+    from app.wa_notify import notify_customer_confirmed
+
+    boat = session.get(Boat, cb.boat_id) if cb.boat_id else None
+    op = session.get(Operator, cb.operator_id) if cb.operator_id else None
+    notify_customer_confirmed(
+        settings,
+        cb.customer_phone,
+        op.name if op else "the operator",
+        boat.name if boat else "your boat",
+        boat.boat_type if boat else None,
+        boat.embarkation_point if boat else None,
+        cb.keywords or "",
+        cb.preferred_date,
+        None,
+    )
+
+
 def process_due_callbacks(
     engine,
     provider: OutboundProvider,
@@ -288,6 +347,7 @@ def process_due_callbacks(
     now: datetime | None = None,
     force: bool = False,
     ignore_window: bool = False,
+    settings=None,
 ) -> int:
     """Attempt every due queued callback. Returns number of attempts made."""
     now = now or utcnow()
@@ -329,7 +389,19 @@ def process_due_callbacks(
             )
             cb.attempts_this_trigger += 1
             made += 1
-            if outcome == "interested":
+            if cb.reason == "booking_confirmed":
+                # Notification call, not a sales call: any contact = notified.
+                # Exhausted no_answer → fall back to WhatsApp.
+                if outcome in ("interested", "not_interested"):
+                    cb.status = "notified"
+                elif cb.attempts_this_trigger >= MAX_ATTEMPTS:
+                    cb.status = "no_answer"
+                    if settings:
+                        _wa_fallback(session, cb, settings)
+                else:
+                    cb.status = "queued"
+                    cb.next_attempt_at = now + timedelta(minutes=MIN_RETRY_MINUTES)
+            elif outcome == "interested":
                 _convert_to_inquiry(session, cb)
             elif outcome == "not_interested":
                 cb.status = "not_interested"

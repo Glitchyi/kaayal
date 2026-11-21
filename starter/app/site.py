@@ -120,11 +120,16 @@ def _footer(request: Request) -> str:
         "<p>Kaayal is a working prototype: inbound calling and booking inquiries "
         "are live, and the callback system is real — but Paayal’s return calls "
         "are simulated, so no real outbound call is placed. Nothing on this "
-        "site is a confirmed booking; the operator always confirms.</p>"
+        "site is a confirmed booking; the operator always confirms. WhatsApp "
+        "messaging runs on WhatsApp Web automation (open-wa) under a "
+        "closed-demo exemption from the open-wa team; the production path is "
+        "the official WhatsApp Business API.</p>"
         '<p><a href="#privacy">Privacy &amp; consent</a> · '
         '<a href="#before-you-book">Before you book</a> · '
         '<a href="#dtpc">DTPC counter</a> · '
-        '<a href="#faq">FAQ</a></p>'
+        '<a href="#faq">FAQ</a> · '
+        '<a href="https://glitchyi.github.io/kaayal/" '
+        'rel="noopener">Docs &amp; runbooks</a></p>'
         f"{nums_html}</footer>"
     )
 

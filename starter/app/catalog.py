@@ -18,6 +18,7 @@ router = APIRouter(prefix="/api/catalog", tags=["catalog"])
 class BoatOut(BaseModel):
     id: int
     name: str
+    boat_type: str | None
     operator_name: str
     operator_reachable: bool
     capacity: int | None
@@ -36,6 +37,7 @@ def _to_out(boat: Boat, op: Operator) -> BoatOut:
     return BoatOut(
         id=boat.id,
         name=boat.name,
+        boat_type=boat.boat_type,
         operator_name=op.name,
         operator_reachable=op.reachable,
         capacity=boat.capacity,
@@ -67,6 +69,7 @@ def list_boats(request: Request, q: str | None = None):
         filtered = [
             b for b in boats
             if needle in b.name.casefold()
+            or (b.boat_type and needle in b.boat_type.casefold())
             or needle in b.operator_name.casefold()
             or (b.embarkation_point and needle in b.embarkation_point.casefold())
             or (size is not None and (b.capacity is None or b.capacity >= size))

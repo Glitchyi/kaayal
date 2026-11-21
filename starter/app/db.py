@@ -31,6 +31,8 @@ class Boat(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     operator_id: int = Field(foreign_key="operator.id", index=True)
     name: str
+    # Free text: houseboat | shikara | canoe | speedboat | … (operator-supplied)
+    boat_type: str | None = None
     capacity: int | None = None
     embarkation_point: str | None = None
     photo_urls: list[str] = Field(default_factory=list, sa_type=JSON)

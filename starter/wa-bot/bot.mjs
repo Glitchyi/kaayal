@@ -1,16 +1,19 @@
-// Kaayal WhatsApp demo onboarding bot — unofficial open-wa session.
+// Kaayal WhatsApp demo onboarding bot — unofficial whatsapp-web.js session.
 // Pair the 9400354625 phone via the QR this prints on first run, keep it
 // running, and inbound DMs get a 3-step onboarding flow ending in a
 // one-time operator portal link issued by the Kaayal API.
 //
-// DEMO ONLY: open-wa automates WhatsApp Web (unofficial, ToS risk).
+// DEMO ONLY: whatsapp-web.js automates WhatsApp Web (unofficial, ToS risk).
 // Production path is the WhatsApp Business API.
 
-import { create } from "@open-wa/wa-automate";
+import pkg from "whatsapp-web.js";
+import qrcode from "qrcode-terminal";
 import { readFileSync, unlinkSync } from "node:fs";
 import { createServer } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+
+const { Client, LocalAuth } = pkg;
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -38,15 +41,51 @@ if (!TOKEN) {
 
 const state = new Map(); // chatId -> { step, name }
 
-async function onboard({ phone, name, boat_name, embarkation }) {
+async function onboard({ phone, name, boat_name, boat_type, embarkation }) {
   const res = await fetch(`${API}/api/ops/wa_onboard`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Kaayal-Tool-Token": TOKEN },
-    body: JSON.stringify({ phone, name, boat_name, embarkation }),
+    body: JSON.stringify({ phone, name, boat_name, boat_type, embarkation }),
   });
   if (!res.ok) throw new Error(`onboard failed: HTTP ${res.status}`);
   return res.json();
 }
+
+// Voice notes: download+decrypt via the session, transcribe server-side
+// (OpenAI key never leaves the app container).
+async function transcribe(msg) {
+  const media = await msg.downloadMedia();
+  if (!media?.data) throw new Error("no media");
+  const audio_b64 = media.data;
+  const mimetype = media.mimetype || "audio/ogg";
+  const res = await fetch(`${API}/api/ops/wa_transcribe`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Kaayal-Tool-Token": TOKEN },
+    body: JSON.stringify({ audio_b64, mimetype }),
+  });
+  if (!res.ok) throw new Error(`transcribe failed: HTTP ${res.status}`);
+  return (await res.json()).text || "";
+}
+
+// Operator manages bookings/reachability by chat command.
+async function opsCall(path, body) {
+  const res = await fetch(`${API}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Kaayal-Tool-Token": TOKEN },
+    body: JSON.stringify(body),
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`${path} failed: HTTP ${res.status}`);
+  return res.json();
+}
+
+const HELP =
+  "Kaayal operator commands:\n" +
+  "• REQUESTS — list pending booking requests\n" +
+  "• REQ-XXXX-XXXX — confirm a request (sends you the caller's number)\n" +
+  "• DECLINE REQ-XXXX-XXXX — decline it\n" +
+  "• PAUSE / RESUME — stop/start being reachable to callers\n" +
+  "• HELP — this list";
 
 // Repeat-DM fast path: 404 = unknown number → run the onboarding flow.
 async function reissue(phone) {
@@ -64,35 +103,118 @@ const WELCOME =
   "Namaskaram! Welcome to Kaayal (കായൽ) operator onboarding.\n\n" +
   "Kaayal connects Alappuzha boat operators to callers. Reply with *your name* to start.";
 
+// whatsapp-web.js message shape → normalize once so the flow below stays
+// library-agnostic. DM ids look like '91xx@c.us'; groups are '@g.us'.
+function chatIdOf(msg) {
+  return msg.fromMe ? msg.to : msg.from;
+}
+
 function start(client) {
+  const sendText = (chatId, text) => client.sendMessage(chatId, text);
   console.log("Kaayal wa-bot connected. Waiting for DMs…");
-  client.onStateChanged((s) => {
-    console.log(`wa-bot state: ${s}`);
-    // Unrecoverable states need a re-pair; exit so the supervisor (restart
-    // policy / launchd) respawns us and prints a fresh QR instead of
-    // sitting alive-but-dead.
-    if (["CONFLICT", "UNPAIRED", "UNPAIRED_IDLE"].includes(s)) {
-      console.error("session unpaired/conflicted — exiting for restart");
-      process.exit(1);
-    }
-  });
-  client.onMessage(async (msg) => {
+  client.on("message", async (msg) => {
     try {
+      const isGroup = String(msg.from).endsWith("@g.us");
       // Log shape only — never the raw phone number or body (PII rules).
       console.log(
-        `inbound msg: type=${msg.type} group=${!!msg.isGroupMsg} fromMe=${!!msg.fromMe} from=…${String(msg.from || msg.chatId || "").replace(/@.*/, "").slice(-4)}`
+        `inbound msg: type=${msg.type} group=${isGroup} fromMe=${!!msg.fromMe} from=…${String(msg.from || "").replace(/@.*/, "").slice(-4)}`
       );
-      if (msg.fromMe || msg.isGroupMsg || msg.type !== "chat") return;
-      const chatId = msg.chatId;
-      const phone = (msg.from || chatId).replace(/@.*/, "");
-      const text = (msg.body || "").trim();
+      const isVoice = ["ptt", "audio"].includes(msg.type);
+      if (msg.fromMe || isGroup || (msg.type !== "chat" && !isVoice)) return;
+      const chatId = chatIdOf(msg);
+      const phone = String(msg.from).replace(/@.*/, "");
+      let text = (msg.body || "").trim();
+      if (isVoice) {
+        await sendText(chatId, "Got your voice note — one second…");
+        try {
+          text = (await transcribe(msg)).trim();
+        } catch {
+          await sendText(
+            chatId,
+            "Sorry, I couldn't hear that voice note — please type it instead."
+          );
+          return;
+        }
+      }
       if (!text) return;
+
+      // Operator commands — checked before the onboarding flow; a 404
+      // (unknown number) falls through to onboarding for list-type commands.
+      const cmd = text.trim().toUpperCase();
+      const idMatch = text.match(/\b(REQ-\d{3,}-[0-9a-f]{2,})\b/i);
+
+      if (idMatch) {
+        const action = cmd.startsWith("DECLINE") ? "decline" : "confirm";
+        const c = await opsCall("/api/ops/wa_confirm", {
+          phone, request_id: idMatch[1].toUpperCase(), action,
+        });
+        await sendText(
+          chatId,
+          c === null
+            ? `Couldn't find ${idMatch[1].toUpperCase()} for your number — check the ID and reply again.`
+            : c.status === "confirmed"
+              ? `Confirmed ✅ ${c.request_id}\n` +
+                `Caller: ${c.customer_name} — ${c.customer_phone}\n` +
+                `${c.boat_name || "—"}${c.preferred_date ? ` · ${c.preferred_date}` : ""}${c.group_size ? ` · ${c.group_size} people` : ""}\n` +
+                (c.notify_channel === "call"
+                  ? "We called them with the good news — they're expecting your call."
+                  : c.notify_channel === "whatsapp"
+                    ? "Couldn't reach them by call, so they were WhatsApped the confirmation — expecting your call."
+                    : "Confirmation call is queued — do call their number in the meantime.")
+              : c.status === "declined"
+                ? `${c.request_id} declined. The caller can leave a callback request instead.`
+                : `${c.request_id} is already ${c.status} — nothing to do.`,
+        );
+        return;
+      }
+      if (cmd === "REQUESTS") {
+        const r = await opsCall("/api/ops/wa_requests", { phone });
+        if (r === null) {
+          // Unknown number → onboarding flow below.
+        } else {
+          await sendText(
+            chatId,
+            r.requests.length
+              ? "Pending requests:\n" +
+                r.requests
+                  .map((x) =>
+                    `• ${x.request_id} — ${x.boat_name || "general"}` +
+                    ` — ${x.customer_name}` +
+                    `${x.preferred_date ? ` · ${x.preferred_date}` : ""}` +
+                    `${x.group_size ? ` · ${x.group_size} people` : ""}`
+                  )
+                  .join("\n") +
+                "\n\nReply with a request ID to confirm, or DECLINE <id>."
+              : "No pending requests right now."
+          );
+          return;
+        }
+      }
+      if (cmd === "PAUSE" || cmd === "RESUME") {
+        const r = await opsCall("/api/ops/wa_reachable", {
+          phone, reachable: cmd === "RESUME",
+        });
+        if (r !== null) {
+          await sendText(
+            chatId,
+            r.reachable
+              ? "You're reachable again — callers can reach you and queued callbacks will fire."
+              : "You're now unreachable — callers will be offered a callback instead."
+          );
+          return;
+        }
+      }
+      if (cmd === "HELP") {
+        await sendText(chatId, HELP);
+        return;
+      }
+
       const s = state.get(chatId) || { step: 0 };
 
       if (s.step === 0) {
         const known = await reissue(phone);
         if (known) {
-          await client.sendText(
+          await sendText(
             chatId,
             known.portal_url
               ? `Welcome back, ${known.name}!\n\n` +
@@ -101,28 +223,58 @@ function start(client) {
                   "We'll WhatsApp you the portal link once the owner approves."
           );
         } else {
-          await client.sendText(chatId, WELCOME);
+          await sendText(chatId, WELCOME);
           state.set(chatId, { step: 1 });
         }
       } else if (s.step === 1) {
         s.name = text;
-        await client.sendText(
+        await sendText(
           chatId,
-          `Thanks ${text}! Now send your boat name and where trips start ` +
-            '(e.g. "Shikara Queen, Punnamada") — or reply "skip" if you\'ll add boats later.'
+          `Thanks ${text}! Now send your boat as *name, type, embarkation* ` +
+            '(e.g. "Queen, houseboat, Punnamada") — or reply "skip" if you\'ll add boats later.'
         );
         s.step = 2;
         state.set(chatId, s);
-      } else {
-        let boat_name = null;
-        let embarkation = null;
+      } else if (s.step === 2) {
+        s.boat = null;
         if (text.toLowerCase() !== "skip") {
-          const [b, e] = text.split(",").map((x) => x.trim());
-          boat_name = b || null;
-          embarkation = e || null;
+          // "name, type, embarkation" — 2 parts = name + embarkation.
+          const [b, t, e] = text.split(",").map((x) => x.trim());
+          s.boat = e
+            ? { name: b || null, type: t || null, embark: e }
+            : { name: b || null, type: null, embark: t || null };
         }
-        const r = await onboard({ phone, name: s.name, boat_name, embarkation });
-        await client.sendText(
+        const boatLine = s.boat?.name
+          ? `Boat: ${s.boat.name}` +
+            (s.boat.type ? ` (${s.boat.type})` : "") +
+            (s.boat.embark ? ` from ${s.boat.embark}` : "")
+          : "No boat yet (add it later from the portal)";
+        await sendText(
+          chatId,
+          `Just to confirm:\n• Name: ${s.name}\n• ${boatLine}\n\n` +
+            "Reply *YES* to register or *NO* to start over."
+        );
+        s.step = 3;
+        state.set(chatId, s);
+      } else if (s.step === 3) {
+        const ans = text.toLowerCase();
+        if (ans === "no") {
+          state.set(chatId, { step: 1 });
+          await sendText(chatId, "No problem — let's start over. What's your name?");
+          return;
+        }
+        if (ans !== "yes") {
+          await sendText(chatId, "Reply *YES* to register or *NO* to start over.");
+          return;
+        }
+        const r = await onboard({
+          phone,
+          name: s.name,
+          boat_name: s.boat?.name || null,
+          boat_type: s.boat?.type || null,
+          embarkation: s.boat?.embark || null,
+        });
+        await sendText(
           chatId,
           r.portal_url
             ? `You're on Kaayal, ${s.name}!\n\n` +
@@ -137,21 +289,23 @@ function start(client) {
     } catch (err) {
       console.error("message handling failed:", err);
       try {
-        await client.sendText(msg.chatId, "Sorry, something went wrong on our side — please try again in a moment.");
+        await sendText(msg.chatId, "Sorry, something went wrong on our side — please try again in a moment.");
       } catch {
         /* nothing else we can do */
       }
     }
   });
   // Diagnostic: fires for every message event, not just inbound chats.
-  client.onAnyMessage((msg) => {
+  client.on("message_create", (msg) => {
     console.log(
-      `any-msg: type=${msg.type} group=${!!msg.isGroupMsg} fromMe=${!!msg.fromMe}`
+      `any-msg: type=${msg.type} group=${String(msg.from || "").endsWith("@g.us")} fromMe=${!!msg.fromMe}`
     );
   });
   // Push channel for the app: POST /send {phone, text} authed with the shared
   // tool token — delivers messages without an inbound DM (e.g. portal link
-  // on operator approval). Internal network only, never published.
+  // on operator approval, or to numbers that have never DM'd — whatsapp-web.js
+  // has no new-chat license gate, though WhatsApp-side spam limits still
+  // apply, so this stays demo-only). Internal network only, never published.
   createServer((req, res) => {
     if (req.method !== "POST" || req.url !== "/send") {
       res.writeHead(404).end();
@@ -171,49 +325,94 @@ function start(client) {
         const { phone, text } = JSON.parse(body);
         const digits = String(phone || "").replace(/\D/g, "");
         if (!digits || !text) throw new Error("bad payload");
-        // Free tier can't start new chats — reuse an existing one when the
-        // number has DM'd the bot before (onboarded operators always have).
-        const chats = (await client.getAllChats().catch(() => [])) || [];
-        const chat = chats.find((c) => String(c.id || "").includes(digits));
-        await client.sendText(
-          chat ? chat.id : `${digits}@c.us`,
-          String(text).slice(0, 2000),
-        );
+        const numberId = await client.getNumberId(digits);
+        if (!numberId) throw new Error("number_not_on_whatsapp");
+        await sendText(numberId._serialized, String(text).slice(0, 2000));
         res.writeHead(200, { "content-type": "application/json" }).end('{"ok":true}');
-      } catch {
+      } catch (err) {
+        console.log("/send failed:", err?.message || err);
         res.writeHead(500).end();
       }
     });
   }).listen(8090, () => console.log("send listener on :8090"));
 }
 
-// Persist the Chromium profile on the session volume — WhatsApp Web auth
-// keys live in the browser profile (IndexedDB), so a tmp profile means a
-// rescan after every container restart. Clear stale Singleton* locks left
-// by unclean exits so Chrome will launch.
-const profileDir = `${env.WA_SESSION_PATH || "./sessions"}/chrome-profile`;
+// LocalAuth persists the linked-device session on the volume so restarts
+// don't need a rescan. Clear stale Chrome Singleton* locks left by unclean
+// exits so the profile will launch.
+const sessionDir = `${env.WA_SESSION_PATH || "./sessions"}/session-kaayal-demo`;
 for (const lock of ["SingletonLock", "SingletonSocket", "SingletonCookie"]) {
   try {
-    unlinkSync(`${profileDir}/${lock}`);
+    unlinkSync(`${sessionDir}/${lock}`);
   } catch {}
 }
 
-create({
-  sessionId: "kaayal-demo",
-  multiDevice: true,
-  headless: true,
-  qrTimeout: 0,
-  authTimeout: 0,
-  sessionDataPath: env.WA_SESSION_PATH || "./sessions",
-  executablePath: env.WA_CHROME_PATH || undefined,
-  chromiumArgs: [
-    "--no-sandbox",
-    "--disable-setuid-sandbox",
-    `--user-data-dir=${profileDir}`,
-  ],
-})
-  .then(start)
-  .catch((err) => {
-    console.error("open-wa failed to start:", err);
-    process.exit(1);
-  });
+const client = new Client({
+  authStrategy: new LocalAuth({
+    clientId: "kaayal-demo",
+    dataPath: env.WA_SESSION_PATH || "./sessions",
+  }),
+  puppeteer: {
+    headless: true,
+    executablePath: env.WA_CHROME_PATH || undefined,
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  },
+});
+
+client.on("loading_screen", (pct, msg) => console.log(`loading: ${pct}% ${msg}`));
+
+client.on("qr", (qr) => {
+  console.log("=== SCAN THIS QR (WhatsApp → Linked devices → Link a device) ===");
+  qrcode.generate(qr, { small: true });
+});
+let booted = false;
+const boot = (via) => {
+  if (booted) return;
+  booted = true;
+  console.log(`wa-bot starting (${via})`);
+  start(client);
+};
+client.on("ready", () => boot("ready"));
+client.on("authenticated", () => {
+  console.log("wa-bot authenticated");
+  // Upstream race (issue 201987): 'ready' is gated on a hasSynced event that
+  // can be missed on warm reinjects. Poll the socket state directly and
+  // start once the session reports CONNECTED.
+  let reinjected = false;
+  const iv = setInterval(async () => {
+    try {
+      if ((await client.getState()) !== "CONNECTED") return;
+      // Socket is up — but 'ready' needs window.WWebJS injected. If the
+      // first inject attempt died silently (its rejection happens inside
+      // the page), retry it ourselves and log the real error.
+      const storeReady = await client.pupPage
+        .evaluate(() => typeof window.WWebJS !== "undefined")
+        .catch(() => false);
+      if (storeReady) {
+        clearInterval(iv);
+        boot("state=CONNECTED fallback");
+      } else if (!reinjected) {
+        reinjected = true;
+        console.log("WWebJS missing — re-running inject()");
+        try {
+          await client.inject();
+          console.log("inject() completed");
+        } catch (e) {
+          console.log("inject() failed:", e?.message || e);
+        }
+      }
+    } catch (e) {
+      console.log("state poll not ready:", e?.message || e);
+    }
+  }, 5000);
+  setTimeout(() => clearInterval(iv), 300000);
+});
+client.on("auth_failure", (m) => {
+  console.error("auth failure:", m);
+  process.exit(1);
+});
+client.on("disconnected", (reason) => {
+  console.error("disconnected:", reason, "— exiting for restart");
+  process.exit(1);
+});
+client.initialize();

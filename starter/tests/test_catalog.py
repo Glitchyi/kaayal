@@ -135,7 +135,7 @@ async def test_catalog_out_shape_and_reachable_flag(app, client):
     (boat,) = r.json()["boats"]
     assert boat["operator_reachable"] is False
     assert set(boat) == {
-        "id", "name", "operator_name", "operator_reachable", "capacity",
-        "embarkation_point", "photo_urls", "amenities", "price_display",
-        "available",
+        "id", "name", "boat_type", "operator_name", "operator_reachable",
+        "capacity", "embarkation_point", "photo_urls", "amenities",
+        "price_display", "available",
     }

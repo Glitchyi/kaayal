@@ -11,7 +11,7 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import Session, select
 
-from app.callbacks import fire_boat_available, fire_operator_reachable
+from app.callbacks import fire_boat_available, fire_booking_confirmed, fire_operator_reachable, process_due_callbacks
 from app.db import Boat, BookingRequest, Operator, utcnow
 from app.ui import esc as _esc, page as _page, status_badge as _status_badge
 
@@ -146,6 +146,8 @@ def dashboard(token: str, request: Request):
 <form method=post action='/portal/{token}/boats'>
 <label for='boat-name'>Boat name</label>
 <input id='boat-name' name=name placeholder='e.g. Lake Queen' required maxlength=120 autocomplete=off>
+<label for='boat-type'>Boat type <span class=muted>(optional)</span></label>
+<input id='boat-type' name=boat_type placeholder='e.g. houseboat, shikara, canoe' maxlength=60 autocomplete=off>
 <label for='boat-cap'>Capacity</label>
 <input id='boat-cap' name=capacity type=number min=1 inputmode=numeric placeholder='e.g. 8'>
 <label for='boat-embark'>Embarkation point</label>
@@ -172,6 +174,7 @@ def add_boat(
     token: str,
     request: Request,
     name: str = Form(max_length=120),
+    boat_type: str | None = Form(default=None, max_length=60),
     capacity: int | None = Form(default=None),
     embarkation_point: str | None = Form(default=None, max_length=200),
     price_display: str | None = Form(default=None, max_length=60),
@@ -184,6 +187,7 @@ def add_boat(
         boat = Boat(
             operator_id=op.id,
             name=name.strip(),
+            boat_type=(boat_type or "").strip() or None,
             capacity=capacity,
             embarkation_point=(embarkation_point or "").strip() or None,
             price_display=(price_display or "").strip() or None,
@@ -253,6 +257,17 @@ def _transition(token: str, public_id: str, request: Request, target: str, note:
             req.operator_note = (note or "").strip() or None
             req.updated_at = utcnow()
             session.commit()
+            if target == "confirmed":
+                fire_booking_confirmed(session, req, boat, op)
+    if target == "confirmed":
+        # Attempt the customer notify call immediately rather than waiting
+        # for the background tick; WhatsApp fallback fires on final no_answer.
+        process_due_callbacks(
+            engine,
+            request.app.state.callback_provider,
+            settings=request.app.state.settings,
+            ignore_window=request.app.state.settings.demo_ignore_call_window,
+        )
     return RedirectResponse(f"/portal/{token}", status_code=303)
 
 

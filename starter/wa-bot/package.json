@@ -3,11 +3,12 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Kaayal demo WhatsApp onboarding bot (open-wa, unofficial — demo only)",
+  "description": "Kaayal demo WhatsApp onboarding bot (whatsapp-web.js, unofficial \u2014 demo only)",
   "scripts": {
     "start": "node bot.mjs"
   },
   "dependencies": {
-    "@open-wa/wa-automate": "5.10.0"
+    "whatsapp-web.js": "1.34.8",
+    "qrcode-terminal": "0.12.0"
   }
 }

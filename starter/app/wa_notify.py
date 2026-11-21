@@ -55,5 +55,30 @@ def notify_booking_request(
         phone,
         f"New booking request for {boat_name}!\n"
         + " · ".join(bits)
-        + "\nThe caller's name and number are in your portal.",
+        + f"\nReply {request_id} to confirm and get the caller's number, "
+        "or handle it in your portal.",
+    )
+
+
+def notify_customer_confirmed(
+    settings, customer_phone: str, operator_name: str, boat_name: str,
+    boat_type: str | None, embarkation: str | None, request_id: str,
+    preferred_date: str | None, group_size: int | None,
+) -> bool:
+    boat_line = boat_name + (f" ({boat_type})" if boat_type else "")
+    trip_bits = [
+        b for b in (embarkation, preferred_date,
+                    f"{group_size} people" if group_size else None)
+        if b
+    ]
+    return _send(
+        settings,
+        customer_phone,
+        "Good news — your Kaayal boat request is confirmed! 🛶\n\n"
+        f"Operator: {operator_name}\n"
+        f"Boat: {boat_line}\n"
+        + (f"Trip: {' · '.join(trip_bits)}\n" if trip_bits else "")
+        + f"Ref: {request_id}\n\n"
+        "Your operator will call you shortly on this number. "
+        "Requests are never auto-confirmed — details are settled on the call.",
     )
