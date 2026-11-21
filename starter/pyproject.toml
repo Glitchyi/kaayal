@@ -1,0 +1,28 @@
+[project]
+name = "kaayal-voice-tool"
+version = "0.1.0"
+description = "Kaayal Phase 1 — authenticated HTTP tool adapter bridging Sarvam Voice Agents to OpenAI Responses API"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "openai>=1.66",
+    "httpx>=0.27",
+    "sqlmodel>=0.0.50",
+    "jinja2>=3.1.6",
+    "python-multipart>=0.0.34",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+pythonpath = ["."]

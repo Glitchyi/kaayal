@@ -1,0 +1,87 @@
+openapi: 3.0.3
+info:
+  title: Kaayal Phase 1 Voice Tool Adapter
+  version: 0.1.0
+  description: Proposed internal contract; map to the latest official Sarvam HTTP-tool schema before deployment.
+servers:
+  - url: https://replace-with-your-https-tunnel.example
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: getHealth
+      responses:
+        '200':
+          description: Service running
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+  /api/voice/reply:
+    post:
+      operationId: voiceReply
+      summary: Return a concise OpenAI-generated response for Sarvam to speak
+      security:
+        - ToolToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VoiceReplyRequest'
+      responses:
+        '200':
+          description: Short text for Sarvam TTS
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoiceReplyResponse'
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized tool call
+        '429':
+          description: Rate limit
+        '502':
+          description: OpenAI temporarily unavailable
+components:
+  securitySchemes:
+    ToolToken:
+      type: apiKey
+      in: header
+      name: X-Kaayal-Tool-Token
+  schemas:
+    VoiceReplyRequest:
+      type: object
+      additionalProperties: false
+      required: [utterance]
+      properties:
+        utterance:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: Latest caller utterance; not stored locally.
+        interaction_id:
+          type: string
+          maxLength: 120
+          description: Optional opaque correlation id, not phone number.
+        language:
+          type: string
+          maxLength: 32
+          description: BCP-47 language hint if available.
+    VoiceReplyResponse:
+      type: object
+      additionalProperties: false
+      required: [reply_text, trace_id]
+      properties:
+        reply_text:
+          type: string
+          description: Plain speakable response in caller language, short enough for a phone call.
+        trace_id:
+          type: string
+          description: Opaque diagnostic correlation ID, not an identity.
