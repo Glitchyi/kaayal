@@ -164,8 +164,8 @@ class SarvamOutboundProvider:
     def _resolve(self, attempt_id: str) -> tuple[str, list[dict]]:
         deadline = time.monotonic() + self._s.sarvam_outbound_timeout_seconds
         while True:
-            att = self._find_attempt(attempt_id)
-            status = ((att or {}).get("connectivity_status") or att.get("status") or "").lower()
+            att = self._find_attempt(attempt_id) or {}
+            status = (att.get("connectivity_status") or att.get("status") or "").lower()
             if status == "connected":
                 vars_ = att.get("final_agent_variables") or att.get("agent_variables") or {}
                 var = vars_.get("callback_outcome")

@@ -107,7 +107,7 @@
 
       <rect x="572" y="340" width="132" height="56" rx="3" fill="none" stroke="#C68E55" stroke-dasharray="4 3"/>
       <text x="638" y="361" text-anchor="middle" font-size="11" font-weight="500" fill="#6B4A26">Outbound calls</text>
-      <text x="638" y="377" text-anchor="middle" font-size="9.5" fill="#6B4A26">simulator · Sarvam stub</text>
+      <text x="638" y="377" text-anchor="middle" font-size="9.5" fill="#6B4A26">simulator default · Sarvam</text>
 
       <!-- edges -->
       <line x1="166" y1="68" x2="244" y2="68" stroke="#5E7A74" stroke-width="1.2" marker-end="url(#arr)"/>
@@ -130,8 +130,9 @@
       <text x="16" y="448" font-size="9.5" fill="#6B4A26">— — sand/dashed = simulated or stubbed, not live</text>
     </svg>
     <figcaption>
-      Everything except the sand-dashed parts is live. Outbound callbacks run through
-      the simulator until real Sarvam outbound calls are approved and wired.
+      Everything except the sand-dashed parts is live. Outbound callbacks default to the
+      simulator; <code>OUTBOUND_PROVIDER=sarvam</code> switches to real Instant Outbound
+      dialing (owner-approved 2026-11-22, per-call charges apply).
     </figcaption>
   </figure>
 
@@ -247,7 +248,7 @@
       <tr><td>Expiry</td><td>7 days, or before the travel date when one parses.</td></tr>
       <tr><td>Outcome</td><td><code>interested</code> auto-converts to a booking inquiry (<code>source=callback</code>) → same portal flow. <code>not_interested</code> opts the number out.</td></tr>
       <tr><td>Opt-out</td><td>"Don't call me" → <code>consent_given=false</code> cancels every active callback for that number; admin can cancel too.</td></tr>
-      <tr><td>Provider</td><td><code>SimulatedProvider</code> today — deterministic outcome, script transcript, no dialing. <code>SarvamOutboundProvider</code> exists but raises until approved and configured.</td></tr>
+      <tr><td>Provider</td><td><code>SimulatedProvider</code> by default — deterministic outcome, script transcript, no dialing. With <code>OUTBOUND_PROVIDER=sarvam</code> plus the <code>SARVAM_*</code> settings, <code>SarvamOutboundProvider</code> creates an Instant Outbound call carrying the callback context as agent variables, then polls the Sarvam analytics <code>attempts</code> API until it resolves — no webhook needed. Connected reads <code>agent_variables.callback_outcome</code>; connected-without-var maps to <code>not_interested</code> so a real inquiry is never faked.</td></tr>
     </tbody>
   </table>
 

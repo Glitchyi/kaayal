@@ -71,6 +71,10 @@ bash scripts/smoke.sh http://localhost:8000 "$SARVAM_TOOL_SHARED_SECRET"</code><
       <tr><td><code>KAAYAL_PHONE_NUMBER</code> / <code>KAAYAL_WHATSAPP_NUMBER</code></td><td>Shown as call / WhatsApp CTAs on the site.</td></tr>
       <tr><td><code>DEMO_IGNORE_CALL_WINDOW</code></td><td>Bypass the 09:00–18:00 IST callback window for off-hours demos. Default off.</td></tr>
       <tr><td><code>SIM_CALLBACK_OUTCOME</code></td><td><code>interested</code> · <code>not_interested</code> · <code>no_answer</code> — deterministic demo results.</td></tr>
+      <tr><td><code>OUTBOUND_PROVIDER</code></td><td><code>simulator</code> (default) or <code>sarvam</code> — real Instant Outbound dialing, per-call charges, owner-approved for the demo.</td></tr>
+      <tr><td><code>SARVAM_API_KEY</code> + <code>SARVAM_ORG_ID</code> + <code>SARVAM_WORKSPACE_ID</code></td><td>Voice Agents workspace key (<code>sk_samvaad_…</code>, Settings → API Key in the apps.sarvam.ai dashboard — not the platform <code>sk_…</code> key) and the org/workspace it belongs to.</td></tr>
+      <tr><td><code>SARVAM_OUTBOUND_APP_ID</code> + <code>SARVAM_OUTBOUND_APP_VERSION</code> + <code>SARVAM_CONNECTION_ID</code> + <code>SARVAM_AGENT_PHONE_NUMBER</code></td><td>The committed outbound agent ("Paayal Callbacks") and the telephony connection it dials through. Outcome resolves by polling the analytics <code>attempts</code> API — no webhook.</td></tr>
+      <tr><td><code>SARVAM_OUTBOUND_TIMEOUT_SECONDS</code></td><td>How long the provider polls analytics before recording <code>no_answer</code>. Default 300.</td></tr>
     </tbody>
   </table>
 
@@ -90,20 +94,98 @@ bash scripts/smoke.sh http://localhost:8000 "$SARVAM_TOOL_SHARED_SECRET"</code><
         number, widen calling hours to 00:00–23:59 for testing.</li>
     <li>Press <strong>Test</strong> in each tool editor, then place real calls in
         Malayalam and English — general question, boat question, test request.</li>
+    <li><strong>Optional — real outbound callbacks</strong>: create a second agent
+        ("Paayal Callbacks"), no API tools, variables <code>customer_name</code>,
+        <code>callback_reason</code>, <code>what</code>, <code>request_ref</code>,
+        <code>operator_name</code>, <code>callback_outcome</code> (agent-set).
+        Commit a version, note app_id/version + connection_id, set the
+        <code>SARVAM_*</code> env vars and <code>OUTBOUND_PROVIDER=sarvam</code>.
+        The backend passes context as agent variables and polls the analytics
+        <code>attempts</code> API for <code>connectivity_status</code> +
+        <code>callback_outcome</code> — no webhook to expose.</li>
   </ol>
   <p class="small muted">Full steps, exact request bodies and the Paayal prompt:
   <a href="https://github.com/Glitchyi/kaayal/blob/main/starter/docs/sarvam-dashboard-setup.md">docs/sarvam-dashboard-setup.md</a></p>
 
   <h2 id="onboard">Onboard an operator (~2 min)</h2>
   <figure class="diagram">
-    <iframe src="hairline-onboarding.html?theme=light&amp;play=1" title="Operator onboarding flow — six mooring posts, one per stage; the pointer's post rises and the boat glides to it" loading="lazy" style="display:block;width:100%;height:44rem;border:0"></iframe>
-    <figcaption>Six mooring posts, one per onboarding stage. The boat plays
-    the journey end to end — <strong>dm → form → review → approve → boats →
-    live</strong> — until you hover a post yourself; then it moors at the one
-    you pick and the read-out names the stage.
-    <a href="hairline-onboarding.html">Open the figure full page →</a>
-    (interactive <a href="https://github.com/lucasmarkes/hairline">hairline</a>
-    figure; source at <code>src/onboarding.js</code>)</figcaption>
+    <svg viewBox="0 0 720 512" role="img" aria-labelledby="onb-title onb-desc" font-family="Satoshi,'Noto Sans Malayalam',sans-serif">
+      <title id="onb-title">Operator onboarding flow</title>
+      <desc id="onb-desc">Six stages from an operator's first WhatsApp DM to a live verified listing: dm, form, review, approve, boats, live — plus a repeat-DM path that reissues the portal link.</desc>
+      <defs>
+        <marker id="onb-arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#5E7A74"/>
+        </marker>
+        <marker id="onb-arr-sim" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#C68E55"/>
+        </marker>
+      </defs>
+
+      <!-- step rail -->
+      <line x1="26" y1="49" x2="26" y2="405" stroke="#D9E6DE"/>
+
+      <!-- 01 dm -->
+      <circle cx="26" cy="49" r="11" fill="#FDFCF9" stroke="#123F3C" stroke-opacity=".45"/>
+      <text x="26" y="52.5" text-anchor="middle" font-size="8.5" fill="#123F3C">01</text>
+      <rect x="52" y="20" width="652" height="58" rx="3" fill="#FDFCF9" stroke="#D9E6DE"/>
+      <text x="68" y="42" font-size="11.5" font-weight="500" fill="#123F3C">dm — first contact</text>
+      <text x="688" y="42" text-anchor="end" font-size="9" fill="#5E7A74">operator · WhatsApp</text>
+      <text x="68" y="60" font-size="9.5" fill="#5E7A74">Operator DMs +91 9400354625 — or the owner creates them in /admin and skips straight to approve</text>
+      <line x1="380" y1="78" x2="380" y2="90" stroke="#5E7A74" stroke-width="1.2" marker-end="url(#onb-arr)"/>
+
+      <!-- 02 form -->
+      <circle cx="26" cy="121" r="11" fill="#FDFCF9" stroke="#123F3C" stroke-opacity=".45"/>
+      <text x="26" y="124.5" text-anchor="middle" font-size="8.5" fill="#123F3C">02</text>
+      <rect x="52" y="92" width="652" height="58" rx="3" fill="#FDFCF9" stroke="#D9E6DE"/>
+      <text x="68" y="114" font-size="11.5" font-weight="500" fill="#123F3C">form — the bot collects the details</text>
+      <text x="688" y="114" text-anchor="end" font-size="9" fill="#5E7A74">wa-bot · whatsapp-web.js</text>
+      <text x="68" y="132" font-size="9.5" fill="#5E7A74">Asks for a name, then "boat, type, boarding point" (or skip) — YES confirms, NO restarts; voice notes are transcribed (whisper-1)</text>
+      <line x1="380" y1="150" x2="380" y2="162" stroke="#5E7A74" stroke-width="1.2" marker-end="url(#onb-arr)"/>
+
+      <!-- 03 review -->
+      <circle cx="26" cy="193" r="11" fill="#FDFCF9" stroke="#123F3C" stroke-opacity=".45"/>
+      <text x="26" y="196.5" text-anchor="middle" font-size="8.5" fill="#123F3C">03</text>
+      <rect x="52" y="164" width="652" height="58" rx="3" fill="#FDFCF9" stroke="#D9E6DE"/>
+      <text x="68" y="186" font-size="11.5" font-weight="500" fill="#123F3C">review — POST /api/ops/wa_onboard</text>
+      <text x="688" y="186" text-anchor="end" font-size="9" fill="#5E7A74">system · SQLite</text>
+      <text x="68" y="204" font-size="9.5" fill="#5E7A74">Operator and boat rows are created with approved_at = NULL — pending, so no portal access and invisible to callers</text>
+      <line x1="380" y1="222" x2="380" y2="234" stroke="#5E7A74" stroke-width="1.2" marker-end="url(#onb-arr)"/>
+
+      <!-- 04 approve -->
+      <circle cx="26" cy="265" r="11" fill="#FDFCF9" stroke="#123F3C" stroke-opacity=".45"/>
+      <text x="26" y="268.5" text-anchor="middle" font-size="8.5" fill="#123F3C">04</text>
+      <rect x="52" y="236" width="652" height="58" rx="3" fill="#FDFCF9" stroke="#C68E55"/>
+      <text x="68" y="258" font-size="11.5" font-weight="500" fill="#123F3C">approve — owner clicks Approve in /admin</text>
+      <text x="688" y="258" text-anchor="end" font-size="9" fill="#6B4A26">owner · /admin</text>
+      <text x="68" y="276" font-size="9.5" fill="#5E7A74">A portal link is minted (token stored as SHA-256, shown once) and pushed back over WhatsApp — the link is the login</text>
+      <line x1="380" y1="294" x2="380" y2="306" stroke="#5E7A74" stroke-width="1.2" marker-end="url(#onb-arr)"/>
+
+      <!-- 05 boats -->
+      <circle cx="26" cy="337" r="11" fill="#FDFCF9" stroke="#123F3C" stroke-opacity=".45"/>
+      <text x="26" y="340.5" text-anchor="middle" font-size="8.5" fill="#123F3C">05</text>
+      <rect x="52" y="308" width="652" height="58" rx="3" fill="#FDFCF9" stroke="#D9E6DE"/>
+      <text x="68" y="330" font-size="11.5" font-weight="500" fill="#123F3C">boats — operator adds their fleet</text>
+      <text x="688" y="330" text-anchor="end" font-size="9" fill="#5E7A74">operator · /portal/&lt;token&gt;</text>
+      <text x="68" y="348" font-size="9.5" fill="#5E7A74">Name, type, boarding point, capacity, price, photos — every boat lands pending verification, invisible to callers</text>
+      <line x1="380" y1="366" x2="380" y2="378" stroke="#5E7A74" stroke-width="1.2" marker-end="url(#onb-arr)"/>
+
+      <!-- 06 live -->
+      <circle cx="26" cy="409" r="11" fill="#FDFCF9" stroke="#123F3C" stroke-opacity=".45"/>
+      <text x="26" y="412.5" text-anchor="middle" font-size="8.5" fill="#123F3C">06</text>
+      <rect x="52" y="380" width="652" height="58" rx="3" fill="#FDFCF9" stroke="#C68E55"/>
+      <text x="68" y="402" font-size="11.5" font-weight="500" fill="#123F3C">live — owner clicks Verify in /admin</text>
+      <text x="688" y="402" text-anchor="end" font-size="9" fill="#6B4A26">owner · /admin</text>
+      <text x="68" y="420" font-size="9.5" fill="#5E7A74">The boat appears on the site and in list_boats; booking pings reach the operator — Confirm unmasks the caller's number</text>
+
+      <!-- reissue loop -->
+      <line x1="380" y1="438" x2="380" y2="456" stroke="#C68E55" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#onb-arr-sim)"/>
+      <rect x="52" y="460" width="652" height="40" rx="3" fill="none" stroke="#C68E55" stroke-dasharray="4 3"/>
+      <text x="380" y="477" text-anchor="middle" font-size="10.5" font-weight="500" fill="#6B4A26">any later DM → POST /api/ops/wa_reissue</text>
+      <text x="380" y="492" text-anchor="middle" font-size="9.5" fill="#6B4A26">a fresh portal link is pushed — the old token dies instantly</text>
+    </svg>
+    <figcaption>Operator onboarding, end to end — numbered like the table below.
+    <b>Sand-bordered</b> steps are owner actions in <code>/admin</code>;
+    the dashed loop is the repeat-DM link reissue.</figcaption>
   </figure>
   <table>
     <thead><tr><th>Post</th><th>Stage</th><th>What happens</th></tr></thead>

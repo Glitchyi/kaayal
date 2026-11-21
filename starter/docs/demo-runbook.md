@@ -8,7 +8,7 @@ Everything here runs without manual DB edits. Public base URL: `https://kaayal.g
 2. Admin: `https://kaayal.glitchy.systems/admin?t=<ADMIN_TOKEN>` → **Demo data → Seed demo data**. This creates:
    - *Backwater Demo Cruises (DEMO)* — reachable; boat **Demo Shikara** (verified, available, ₹2,000/hour demo price)
    - *Monsoon Houseboats (DEMO)* — **unreachable**; boat **Demo Deluxe** (verified, **unavailable**)
-3. Optional for off-hours demos: set `DEMO_IGNORE_CALL_WINDOW=true` in `.env` (otherwise callbacks only attempt 09:00–18:00 IST). Simulator outcome via `SIM_CALLBACK_OUTCOME=interested|not_interested|no_answer` (default `interested`).
+3. Optional for off-hours demos: set `DEMO_IGNORE_CALL_WINDOW=true` in `.env` (otherwise callbacks only attempt 09:00–18:00 IST). Simulator outcome via `SIM_CALLBACK_OUTCOME=interested|not_interested|no_answer` (default `interested`). For real dialing: `OUTBOUND_PROVIDER=sarvam` + the `SARVAM_*` settings (see wiki → Operations → Environment) — real calls cost real money.
 
 ## Scenario A — tourist journey (the full loop)
 
@@ -44,6 +44,6 @@ Everything here runs without manual DB edits. Public base URL: `https://kaayal.g
 
 | Real | Simulated |
 | --- | --- |
-| FastAPI app, SQLite, tunnel URL, Sarvam inbound number + tools | Outbound calls (SimulatedProvider — transcripts, no dialing) |
-| Operator portal, admin, catalog, inquiries, callback engine logic | WhatsApp onboarding (open-wa, unofficial) |
+| FastAPI app, SQLite, tunnel URL, Sarvam inbound number + tools | Outbound calls (SimulatedProvider — transcripts, no dialing; `OUTBOUND_PROVIDER=sarvam` switches to real Instant Outbound) |
+| Operator portal, admin, catalog, inquiries, callback engine logic | WhatsApp onboarding (whatsapp-web.js, unofficial) |
 | OpenAI answers via `voice_reply` | DEMO-seeded operators/boats |
