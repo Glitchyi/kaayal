@@ -473,7 +473,17 @@ body.site .site-footer {{ margin-top: 0; padding-top: 2rem; }}
   .ed-head {{ position: static; }}
   body.site .hero {{ align-items: start; }}
 }}
+ol.steps li span {{ display: block; }}
 @media (max-width: 640px) {{
+  /* Phones: numeral in a gutter beside the title instead of its own row. */
+  ol.steps {{ gap: 0; }}
+  ol.steps li {{ display: grid; grid-template-columns: 2.4rem minmax(0, 1fr); column-gap: .6rem;
+    padding: .9rem 0 1rem; border-top-color: var(--line); }}
+  ol.steps li:first-child {{ border-top-color: var(--lagoon); }}
+  ol.steps li::before {{ grid-row: 1 / span 2; font-size: 2.1rem; margin: -.15rem 0 0; }}
+  ol.steps li b {{ font-size: 1.1rem; margin-bottom: .15rem; }}
+  body.site .ed-head > p.muted {{ margin-bottom: 0; }}
+  .ed {{ row-gap: 1.5rem; }}
   ol.steps, body.site .asks, .boat {{ grid-template-columns: 1fr; }}
   body.site .facts {{ grid-template-columns: 1fr; }}
   body.site .facts dd:first-of-type {{ padding-top: .3rem; }}

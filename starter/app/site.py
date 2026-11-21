@@ -292,17 +292,13 @@ Paayal can tell you about.</p>
 <section id="how" class="ed">
 <div class="ed-head">
 <h2>Four steps, one phone call</h2>
-<p class=muted>How a call to Paayal turns into a trip — and who decides what.</p>
+<p class=muted>From your call to a confirmed trip.</p>
 </div>
 <ol class=steps>
-  <li><b>Call</b> Paayal answers in your language and tells you about reviewed boats:
-      capacity, boarding point, and the operator behind each one.</li>
-  <li><b>Inquire</b> Leave your name, number, date, and group size.
-      With your permission, the inquiry goes to the operator.</li>
-  <li><b>Not available now?</b> If a boat is taken or its operator can’t be reached,
-      Paayal can call <i>you</i> back when that changes — only if you say yes.</li>
-  <li><b>Confirm</b> The operator calls you to confirm the trip and the price.
-      Nothing is booked until they say yes.</li>
+  <li><b>Call</b><span>Paayal tells you about reviewed boats, in your language.</span></li>
+  <li><b>Inquire</b><span>Leave your name, number, date and group size.</span></li>
+  <li><b>Not free yet?</b><span>Paayal can call <i>you</i> back when it is — only if you ask.</span></li>
+  <li><b>Confirm</b><span>The operator calls you back. Nothing is booked until they say yes.</span></li>
 </ol>
 </section>
 
