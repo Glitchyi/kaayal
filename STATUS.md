@@ -7,7 +7,10 @@
   ("don't call me"), 90-day PII anonymization, honest Sarvam recording caveat.
 - Footer now carries the prototype disclosure + Privacy/WhatsApp links;
   nav is unified across all public pages with `aria-current="page"`.
-- Copy aligned: public claims are Malayalam + English only; "verified"
+- Copy aligned: public claims were Malayalam + English only. **LANGUAGE
+  DECISION (owner, 2026-11-22):** Paayal speaks all 11 Bulbul v4 languages
+  (`bulbul:v4-flash` TTS, `saaras:v4` STT) — ml, en, hi, ta, te, kn, bn, mr,
+  gu, pa, od (`od-IN`); Malayalam stays first/primary. "verified"
   replaced by "reviewed by the Kaayal owner" everywhere user-facing.
 - Verified at 375/768/1440 via CDP emulation: no horizontal overflow,
   scrollWidth == clientWidth on every public page.
@@ -34,9 +37,10 @@
 ## Pending — USER (blocking the live product)
 1. Sarvam dashboard → `starter/docs/sarvam-dashboard-setup.md`: register all 5 tools (incl. `create_callback_request`), paste Paayal checklist prompt, test each
 2. `/admin?t=<ADMIN_TOKEN>` → approve/verify operators + boats
-3. Live inbound calls in Malayalam + English (general Q, availability Q, inquiry, callback consent)
+3. Live inbound calls in Malayalam + the other 10 languages (general Q, availability Q, inquiry, callback consent)
 4. wa-bot: `cd starter && docker compose up -d` → `docker compose logs -f wa-bot` → QR scan on the 9400354625 phone (falls back to `cd starter/wa-bot && npm start` if containers aren't running)
 5. Answer Claude-pack questions: Q02 call recording/retention policy; Q03 Malayalam native reviewer; analytics tool choice (cookieless proposal needed — e.g. Plausible ≈₹800/mo or self-hosted Umami free)
+6. Verify the live Sarvam agent is on bulbul:v4-flash + saaras:v4 and test a call in each language before promoting it.
 
 ## Done since last update
 - WhatsApp onboarding hardening: repeat-DM fast path (`/api/ops/wa_reissue` — welcome back + fresh link, no re-questionnaire); admin approval auto-pushes the portal link over WhatsApp (`wa_notify.py` → bot `/send` on :8090); booking requests ping the boat's operator over WhatsApp (no customer PII in the message)

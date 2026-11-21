@@ -132,7 +132,9 @@ has already completed (e.g., if they already gave their name or agreed to
 share their number, do not ask again).
 
 [ ] 1. GREET — say you are Paayal, in Malayalam. Continue in the caller's
-       language (Malayalam or English). Max two short sentences per turn.
+       language — any of Malayalam, English, Hindi, Tamil, Telugu, Kannada,
+       Bengali, Marathi, Gujarati, Punjabi or Odia (code-mixing such as
+       Hinglish is fine). Max two short sentences per turn.
 
 [ ] 2. CLASSIFY the caller's need:
        - Question about Kaayal/Kerala/Alappuzha, boat TYPES, or tourism → step 3
@@ -200,8 +202,16 @@ Enable all five tools on the agent (global scope).
 
 ## 4. Language and voice
 
-Initial language `ml-IN`, Malayalam-capable voice. The agent may switch to
-English when the caller does. Verify actual Malayalam speech on a real call
+Initial language `ml-IN`, Malayalam-capable voice (Malayalam stays primary).
+The agent may switch to any of the 11 Bulbul v4 languages when the caller
+does: `ml-IN`, `en-IN`, `hi-IN`, `ta-IN`, `te-IN`, `kn-IN`, `bn-IN`, `mr-IN`,
+`gu-IN`, `pa-IN`, `od-IN` (Sarvam's code for Odia — not `or-IN`). Code-mixed
+speech (e.g. Hinglish) is supported.
+
+Setup: in the Sarvam dashboard set TTS to **`bulbul:v4-flash`** and STT to
+**`saaras:v4`** explicitly — the API defaults to `bulbul:v3` if unset.
+Malayalam and Odia have no dedicated v4 voice persona; any v4 persona works
+with the language code. Verify actual speech in each language on a real call
 before claiming support.
 
 ## 5. Inbound deployment
@@ -225,7 +235,7 @@ locked after creation.
      boat via `/admin` first)
    - `create_booking_request` (consent_given=true) →
      `{request_id, status:"pending", message}`
-2. Call the number in Malayalam, then English: ask a general question, ask
+2. Call the number in Malayalam, then each other language: ask a general question, ask
    about boats, leave a test request.
 3. Server side:
    `docker logs kaayal-app-1 | grep -E "voice_reply|catalog|callback"` —

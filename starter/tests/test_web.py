@@ -11,6 +11,7 @@ from app.config import Settings
 from app.db import Boat, Operator, utcnow
 from app.main import create_app
 from app.portal import hash_token
+from app.site import _FAQ
 
 SECRET = "test-tool-secret"
 PHONE = "+91 94000 00000"
@@ -74,7 +75,7 @@ async def test_landing_uses_shared_nav_and_footer(client):
     r = await client.get("/")
     assert r.status_code == 200
     assert 'class="topnav"' in r.text
-    for frag in ("#paayal", "#boats", "#explore", "#before-you-book", "#faq"):
+    for frag in ("#how", "#paayal", "#boats", "#before-you-book", "#faq"):
         assert f'href="{frag}"' in r.text
     assert "Nothing on this site is a confirmed booking" in r.text
     assert "Sarvam’s calling platform" in r.text  # disclosure of who places callbacks
@@ -171,11 +172,21 @@ async def test_old_page_routes_redirect(client):
         "/paayal": "#paayal", "/boats": "#boats", "/explore": "#explore",
         "/before-you-book": "#before-you-book",
         "/dtpc-houseboat-counter": "#dtpc", "/faq": "#faq",
-        "/privacy": "#privacy",
     }.items():
         r = await client.get(path)
         assert r.status_code == 301, path
         assert r.headers["location"].endswith("/" + frag), path
+
+
+async def test_privacy_is_its_own_page(client):
+    r = await client.get("/privacy")
+    assert r.status_code == 200
+    for text in ("anonymized after 90 days", "09:00 and 18:00 IST",
+                 "No cookies, no analytics", "Calls are carried by Sarvam"):
+        assert text in r.text, text
+    # the landing keeps a short summary that links here
+    home = await client.get("/")
+    assert 'id="privacy"' in home.text and 'href="/privacy"' in home.text
 
 
 # --- removed form routes ---
@@ -221,7 +232,7 @@ async def test_faqpage_jsonld_valid(client):
     )
     assert data, "FAQPage JSON-LD missing"
     assert data["@type"] == "FAQPage"
-    assert len(data["mainEntity"]) == 10
+    assert len(data["mainEntity"]) == len(_FAQ)  # every FAQ item is in the schema
     assert all(e["@type"] == "Question" for e in data["mainEntity"])
 
 

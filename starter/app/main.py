@@ -8,6 +8,7 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session
@@ -94,6 +95,10 @@ def create_app(settings: Settings | None = None, responder=None) -> FastAPI:
         task.cancel()
 
     app = FastAPI(title="Kaayal Voice Tool Adapter", version="0.3.0", lifespan=lifespan)
+    # Compress the HTML pages (inline scene SVGs are ~200KB of path data that
+    # gzips ~8x). The 2KB floor leaves small /api JSON replies, including the
+    # live voice tool path, untouched.
+    app.add_middleware(GZipMiddleware, minimum_size=2048)
     static_dir = Path(__file__).parent / "static"
     if static_dir.is_dir():
         app.mount("/static", StaticFiles(directory=static_dir), name="static")

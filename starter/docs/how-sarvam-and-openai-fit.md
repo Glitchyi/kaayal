@@ -6,7 +6,7 @@ Two different "agents" are involved — they do very different jobs.
 
 | Component | What it is | What it does |
 | --- | --- | --- |
-| **Paayal (Sarvam hosted voice agent)** | Sarvam's platform running on your phone number | Answers the call, understands Malayalam/English speech, decides which tool to call, speaks replies. This is the "brain and voice" the caller experiences. |
+| **Paayal (Sarvam hosted voice agent)** | Sarvam's platform running on your phone number | Answers the call, understands speech in 11 languages (Malayalam first, plus English, Hindi, Tamil, Telugu, Kannada, Bengali, Marathi, Gujarati, Punjabi, Odia), decides which tool to call, speaks replies. This is the "brain and voice" the caller experiences. |
 | **OpenAI Responses API** | A text-generation API called by our backend | Only used inside the `voice_reply` tool — when the caller asks a general open-ended question (about Kaayal, Kerala, travel), Sarvam forwards the question to our endpoint, our backend asks OpenAI to write a short speakable answer, and Sarvam reads it aloud. |
 | **Kaayal FastAPI backend** | Our server at `kaayal.glitchy.systems` | Authenticates tool calls, queries the SQLite catalog, stores booking requests, and (only for `voice_reply`) calls OpenAI. |
 

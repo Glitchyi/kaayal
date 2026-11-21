@@ -3,6 +3,8 @@ Operators get portal URLs here; owner verifies boats and triages boat-less reque
 """
 
 import hmac
+from datetime import timezone
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -26,14 +28,29 @@ def _check_admin(request: Request, t: str | None) -> str:
     return t
 
 
-def _admin_nav() -> str:
+def _admin_nav(t: str | None = None) -> str:
+    home = f"/admin?t={_esc(t)}" if t else "/"
     return (
         '<nav class="topnav" aria-label="Admin">'
-        '<a class="wordmark" href="/">Kaayal <span class="ml" lang="ml">കായൽ</span></a>'
-        '<span class="muted small">owner admin</span>'
-        '<a class="navlink" href="/">← Back to site</a>'
+        f'<a class="wordmark" href="{home}">Kaayal <span class="ml" lang="ml">കായൽ</span></a>'
+        '<span class="role">Owner admin</span>'
+        '<a class="navlink" href="/">View public site</a>'
         '</nav>'
     )
+
+
+_IST = ZoneInfo("Asia/Kolkata")
+
+# Plain-language labels for callback reasons and attempt outcomes.
+_REASON = {
+    "no_availability": "Boat was unavailable",
+    "operator_unreachable": "Operator was unreachable",
+    "booking_confirmed": "Tell customer: confirmed",
+}
+
+
+def _reason(code: str | None) -> str:
+    return _esc(_REASON.get(code, (code or "—").replace("_", " ")))
 
 
 # Friendly labels for machine `source` values — rendered as muted text,
@@ -68,19 +85,43 @@ def _done_url(t: str, key: str, anchor: str) -> str:
 def _portal_link_page(title: str, name: str, url: str, t: str, note: str) -> HTMLResponse:
     """One-time display of a raw portal URL — the only place a token is ever shown."""
     body = f"""
-<h1>{title}</h1>
-<div class=card>
-<p><b>{_esc(name)}</b> — share this portal link with the operator (it is their only access; keep it private):</p>
-<p><code>{_esc(url)}</code></p>
+<header class="util-head"><h1>{title}</h1></header>
+<div class=card style="margin-top:2rem">
+<p><b>{_esc(name)}</b> — share this portal link with the operator. It is their only
+way in, so send it privately.</p>
+<div class=copyrow><code id=portal-url>{_esc(url)}</code>
+<button type=button class=secondary id=copy-url hidden>Copy link</button></div>
+<p class="muted small" role=status id=copy-status></p>
 <p class="muted small">{_esc(note)}</p>
 </div>
-<p><a href='/admin?t={_esc(t)}'>← Back to admin</a></p>
+<p><a href='/admin?t={_esc(t)}#ops'>← Back to operators</a></p>
+<script>
+(() => {{
+  const b = document.getElementById("copy-url");
+  if (!navigator.clipboard) return;
+  b.hidden = false;
+  b.addEventListener("click", async () => {{
+    try {{
+      await navigator.clipboard.writeText(document.getElementById("portal-url").textContent);
+      document.getElementById("copy-status").textContent = "Copied. This page won't show the link again.";
+    }} catch (e) {{
+      document.getElementById("copy-status").textContent = "Couldn't copy. Select the link and copy it by hand.";
+    }}
+  }});
+}})();
+</script>
 """
-    return HTMLResponse(_page(f"{title} — Kaayal", body))
+    return HTMLResponse(_page(f"{title} — Kaayal", body, nav=_admin_nav(t), body_class="wide util", motion=False))
 
 
 def _fmt_dt(dt) -> str:
-    return _esc(dt.strftime("%d %b %Y %H:%M")) if dt else "—"
+    """Stored datetimes are naive UTC; the owner thinks in IST (the calling
+    window is IST too), so show IST and say so."""
+    if not dt:
+        return "—"
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return _esc(dt.astimezone(_IST).strftime("%d %b, %H:%M")) + ' <span class="muted">IST</span>'
 
 
 def _op_row(o: Operator, t: str) -> str:
@@ -109,7 +150,7 @@ def _op_row(o: Operator, t: str) -> str:
         f"<button class={cls}>{label}</button></form>"
     )
     return (
-        f"<tr><td>{o.id}</td><td>{_esc(o.name)}</td><td class=small>{_esc(o.phone)}</td>"
+        f"<tr><td class=num>{o.id}</td><td>{_esc(o.name)}</td><td class=small>{_esc(o.phone)}</td>"
         f"<td>{_src(o.source)}</td><td>{badge}</td>"
         f"<td class=actions>{''.join(actions)}</td></tr>"
     )
@@ -128,18 +169,18 @@ def _cb_rows(cbs: list[CallbackRequest], attempts: dict[int, list[CallbackAttemp
         out.append(
             f"<tr><td>{_esc(cb.public_id)}</td>"
             f"<td>{_esc(cb.customer_name)}<br><span class='muted small'>{_esc(cb.customer_phone)}</span></td>"
-            f"<td class=small>{_esc(cb.reason)}</td><td>{_status_badge(cb.status)}</td>"
-            f"<td>{cb.attempts_this_trigger}/{_CB_MAX_ATTEMPTS}</td>"
+            f"<td class=small>{_reason(cb.reason)}</td><td>{_status_badge(cb.status)}</td>"
+            f"<td class=num>{cb.attempts_this_trigger}/{_CB_MAX_ATTEMPTS}</td>"
             f"<td class=small>{_fmt_dt(cb.next_attempt_at)}</td>"
             f"<td class=small>{_fmt_dt(cb.expires_at)}</td><td class=actions>{actions}</td></tr>"
         )
         att = attempts.get(cb.id, [])
         if att:
             items = "".join(
-                f"<li>{_fmt_dt(a.attempted_at)} — {_esc(a.outcome)} · {_esc(a.provider)}</li>"
+                f"<li>{_fmt_dt(a.attempted_at)} — {_esc((a.outcome or '').replace('_', ' '))} · {_esc(a.provider)}</li>"
                 for a in att
             )
-            out.append(f"<tr><td colspan=8><ul class='muted small' style='margin:.2rem 0 .6rem'>{items}</ul></td></tr>")
+            out.append(f"<tr><td colspan=8><ul class='muted small' style='margin:.2rem 0 .6rem' aria-label='Call attempts for {_esc(cb.public_id)}'>{items}</ul></td></tr>")
     return "".join(out) or ("<tr><td colspan=8 class='muted small'>No callbacks queued — "
                             "Paayal adds one only after the caller agrees.</td></tr>")
 
@@ -160,8 +201,9 @@ def admin_home(request: Request, t: str | None = None, done: str | None = None):
     op_rows = "".join(_op_row(o, t) for o in operators) or ("<tr><td colspan=6 class='muted small'>"
         "No operators yet — add one below to get a portal link.</td></tr>")
 
+    boat_names = {b.id: b.name for b, _ in boats}
     boat_rows = "".join(
-        f"<tr><td>{b.id}</td><td>{_esc(b.name)}</td>"
+        f"<tr><td class=num>{b.id}</td><td>{_esc(b.name)}</td>"
         f"<td class=small>{_esc(b.boat_type or '—')}</td>"
         f"<td class=small>{_esc(b.embarkation_point or '—')}</td>"
         f"<td class=small>{_esc(op)}</td>"
@@ -172,12 +214,15 @@ def admin_home(request: Request, t: str | None = None, done: str | None = None):
     ) or "<tr><td colspan=8 class='muted small'>No boats yet — operators add them from their portal page.</td></tr>"
 
     def _req_row(r: BookingRequest) -> str:
-        boat = f"boat #{r.boat_id}" if r.boat_id else '<span class="muted small">— triage</span>'
+        if r.boat_id:
+            boat = _esc(boat_names.get(r.boat_id, f"boat #{r.boat_id} (removed)"))
+        else:
+            boat = '<span class="badge wait">no boat picked</span>'
         return (
             f"<tr><td>{_esc(r.public_id)}</td>"
             f"<td>{_esc(r.customer_name)}<br><span class='muted small'>{_esc(r.customer_phone)}</span></td>"
             f"<td class=small>{boat}</td><td class=small>{_esc(r.preferred_date)}</td>"
-            f"<td>{_esc(str(r.group_size)) if r.group_size else '—'}</td><td>{_src(r.source)}</td>"
+            f"<td class=num>{_esc(str(r.group_size)) if r.group_size else '—'}</td><td>{_src(r.source)}</td>"
             f"<td class='muted small'>{_esc(r.operator_note) if r.operator_note else '—'}</td>"
             f"<td>{_status_badge(r.status)}</td></tr>"
         )
@@ -192,54 +237,83 @@ def admin_home(request: Request, t: str | None = None, done: str | None = None):
     unverified = sum(1 for b, _ in boats if b.verified_at is None)
     triage = sum(1 for r in requests if r.boat_id is None and r.status == "pending")
     active_cbs = sum(1 for c in cbs if c.status in _CB_ACTIVE)
-    ledger_items = []
-    if pending_ops:
-        ledger_items.append(f'<li><a href="#ops">{pending_ops} operator{"s" if pending_ops != 1 else ""} awaiting approval</a></li>')
-    if unverified:
-        ledger_items.append(f'<li><a href="#boats">{unverified} boat{"s" if unverified != 1 else ""} awaiting verification</a></li>')
-    if triage:
-        ledger_items.append(f'<li><a href="#requests">{triage} unassigned request{"s" if triage != 1 else ""} (no boat picked)</a></li>')
-    if active_cbs:
-        ledger_items.append(f'<li><a href="#callbacks">{active_cbs} callback{"s" if active_cbs != 1 else ""} in the queue</a></li>')
-    ledger = ""
-    if ledger_items:
-        ledger = f'<div class="card"><h3>Needs attention</h3><ul class="small" style="margin:.35rem 0 0;padding-left:1.15rem">{"".join(ledger_items)}</ul></div>'
+    ledger = "" if (pending_ops or unverified or triage or active_cbs) else (
+        '<p class="muted small">Nothing waiting on you: every operator is approved, every boat '
+        'verified, and no request is unassigned.</p>'
+    )
+    pending_reqs = sum(1 for r in requests if r.status == "pending")
 
-    notice = f'<div class="notice" role="status">{_DONE[done]}</div>' if done in _DONE else ""
+    def _jump(anchor: str, label: str, total: int, hot: int = 0, hot_label: str = "") -> str:
+        n = (f'<span class="n hot">{hot} {hot_label}</span>' if hot
+             else f'<span class="n">{total}</span>')
+        return f'<li><a href="#{anchor}">{label} {n}</a></li>'
+
+    # One jump bar doubles as the triage ledger: sections with work show what
+    # is waiting in sand; the rest show their totals.
+    jumps = (
+        '<ul class="sectionnav" aria-label="Sections">'
+        + _jump("ops", "Operators", len(operators), pending_ops, "awaiting approval")
+        + _jump("boats", "Boats", len(boats), unverified, "to verify")
+        + _jump("requests", "Requests", len(requests), triage, "unassigned")
+        + _jump("callbacks", "Callbacks", len(cbs), active_cbs, "in queue")
+        + '<li><a href="#demo">Demo data</a></li></ul>'
+    )
+
+    # The redirect lands on the section's anchor, so show the notice there —
+    # a notice at the top of the page would be scrolled out of view.
+    section_of = {"boat_verified": "boats", "op_deactivated": "ops", "op_reactivated": "ops",
+                  "cb_cancelled": "callbacks", "cbs_ran": "callbacks",
+                  "demo_seeded": "demo", "demo_cleared": "demo"}
+
+    def notice(section: str) -> str:
+        if done in _DONE and section_of.get(done) == section:
+            return f'<div class="notice" role="status">{_DONE[done]}</div>'
+        return ""
 
     body = f"""
+<header class="util-head">
 <h1>Owner admin</h1>
 <p class=muted>Operators, listings, every booking request, and the callback queue.</p>
-{notice}
+{jumps}
 {ledger}
-<h2 id="ops">Operators</h2>
-<div class=tablewrap><table><thead><tr><th>#</th><th>Name</th><th>Phone</th><th>Source</th><th>Status</th><th class=actions>Actions</th></tr></thead><tbody>{op_rows}</tbody></table></div>
-<div class=card>
-<h3>Add operator</h3>
+</header>
+<h2 id="ops">Operators<span class="n">{len(operators)}</span></h2>
+{notice("ops")}
+<div class=tablewrap><table><thead><tr><th class=num>#</th><th>Name</th><th>Phone</th><th>Source</th><th>Status</th><th class=actions>Actions</th></tr></thead><tbody>{op_rows}</tbody></table></div>
+<details class=disclose{"" if operators else " open"}>
+<summary>Add an operator</summary>
+<div>
+<p class="muted small" style="margin-top:0">Operators you add here are approved straight away and get a portal link.
+Operators who message the WhatsApp number show up above as <i>pending approval</i>.</p>
 <form method=post action='/admin/operators?t={t}'>
 <label for='op-name'>Operator name</label>
 <input id='op-name' name=name placeholder='e.g. Raj Boat Service' required maxlength=120 autocomplete=off>
 <label for='op-phone'>Phone</label>
 <input id='op-phone' name=phone type=tel inputmode=tel placeholder='+91…' required maxlength=32>
-<div style='margin-top:1rem'><button type=submit>Create + get portal link</button></div>
+<div style='margin-top:1rem'><button type=submit>Create and get portal link</button></div>
 </form>
 </div>
-<h2 id="boats">Boats</h2>
-<div class=tablewrap><table><thead><tr><th>#</th><th>Name</th><th>Type</th><th>Boarding</th><th>Operator</th><th>Availability</th><th>Status</th><th class=actions>Actions</th></tr></thead><tbody>{boat_rows}</tbody></table></div>
-<h2 id="requests">All booking requests</h2>
-<div class=tablewrap><table><thead><tr><th>ID</th><th>Customer</th><th>Boat</th><th>Date</th><th>Group</th><th>Source</th><th>Operator note</th><th>Status</th></tr></thead><tbody>{req_rows}</tbody></table></div>
-<h2 id="callbacks">Callbacks</h2>
-<p class=muted>Customers Paayal rings back — calls go out 09:00–18:00 IST, max {_CB_MAX_ATTEMPTS} tries per trigger.</p>
+</details>
+<h2 id="boats">Boats<span class="n">{len(boats)}</span></h2>
+{notice("boats")}
+<div class=tablewrap><table><thead><tr><th class=num>#</th><th>Name</th><th>Type</th><th>Boarding</th><th>Operator</th><th>Availability</th><th>Status</th><th class=actions>Actions</th></tr></thead><tbody>{boat_rows}</tbody></table></div>
+<h2 id="requests">Booking requests<span class="n">{pending_reqs} pending of {len(requests)}</span></h2>
+<p class="muted small">Requests with <span class="badge wait">no boat picked</span> came from callers who didn't choose a listing — follow up by phone.</p>
+<div class=tablewrap><table><thead><tr><th>ID</th><th>Customer</th><th>Boat</th><th>Date</th><th class=num>Group</th><th>Source</th><th>Operator note</th><th>Status</th></tr></thead><tbody>{req_rows}</tbody></table></div>
+<h2 id="callbacks">Callbacks<span class="n">{active_cbs} active of {len(cbs)}</span></h2>
+{notice("callbacks")}
+<p class=muted>Customers Paayal rings back. Calls go out 09:00–18:00 IST, at most {_CB_MAX_ATTEMPTS} tries per trigger. Times below are IST.</p>
 <form class=inline method=post action='/admin/callbacks/run_due?t={t}' onsubmit='return confirm("Run due callbacks now? Queued customers may receive calls.")'><button class=secondary>Run due callbacks now</button></form>
-<div class=tablewrap><table><thead><tr><th>ID</th><th>Customer</th><th>Reason</th><th>Status</th><th>Tries</th><th>Next attempt</th><th>Expires</th><th class=actions>Actions</th></tr></thead><tbody>{cb_rows}</tbody></table></div>
+<div class=tablewrap><table><thead><tr><th>ID</th><th>Customer</th><th>Reason</th><th>Status</th><th class=num>Tries</th><th>Next attempt</th><th>Expires</th><th class=actions>Actions</th></tr></thead><tbody>{cb_rows}</tbody></table></div>
 <h2 id="demo">Demo data</h2>
+{notice("demo")}
 <div class=card>
-<p class="muted small">Clearly-labeled demo inventory for walkthroughs. Seeding adds the same demo rows every time — safe to run twice. Clearing removes them, along with their requests and callbacks.</p>
+<p class="muted small" style="margin-top:0">Labeled demo inventory for walkthroughs; it shows on the public site with a DEMO badge. Seeding twice won't create duplicates. Clearing removes the demo rows along with their requests and callbacks.</p>
 <form class=inline method=post action='/admin/demo/seed?t={t}'><button class=secondary>Seed demo data</button></form>
 <form class=inline method=post action='/admin/demo/clear?t={t}' onsubmit='return confirm("Clear demo data? This removes demo operators, boats, requests, and callbacks.")'><button class=danger>Clear demo data</button></form>
 </div>
 """
-    return HTMLResponse(_page("Kaayal admin", body, description="Kaayal owner admin", nav=_admin_nav(), body_class="wide"))
+    return HTMLResponse(_page("Kaayal admin", body, description="Kaayal owner admin", nav=_admin_nav(t), body_class="wide util", motion=False))
 
 
 @router.post("/operators", response_class=HTMLResponse)

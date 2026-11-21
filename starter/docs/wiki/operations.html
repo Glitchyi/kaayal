@@ -91,11 +91,19 @@ bash scripts/smoke.sh http://localhost:8000 "$SARVAM_TOOL_SHARED_SECRET"</code><
         variable, not the conversation.</li>
     <li>Paste the Paayal checklist prompt into the agent instructions (it is the
         only lever over when tools fire) and enable all six tools.</li>
-    <li>Initial language Malayalam (<code>ml-IN</code>), Malayalam-capable voice.</li>
+    <li>Initial language Malayalam (<code>ml-IN</code>), Malayalam-capable voice;
+        the agent may switch to any of the 11 Bulbul v4 languages when the caller
+        does (<code>ml-IN en-IN hi-IN ta-IN te-IN kn-IN bn-IN mr-IN gu-IN pa-IN
+        od-IN</code> — Odia is <code>od-IN</code>, not <code>or-IN</code>;
+        code-mixing such as Hinglish is supported).</li>
+    <li>Set TTS to <code>bulbul:v4-flash</code> and STT to <code>saaras:v4</code>
+        explicitly in the dashboard — the API defaults to <code>bulbul:v3</code>
+        if unset. Malayalam and Odia have no dedicated v4 persona; any v4 persona
+        works with the language code.</li>
     <li><strong>Deploy → Inbounds → Create Inbound</strong>: attach agent +
         number, widen calling hours to 00:00–23:59 for testing.</li>
     <li>Press <strong>Test</strong> in each tool editor, then place real calls in
-        Malayalam and English — general question, boat question, test request.</li>
+        Malayalam and each other language — general question, boat question, test request.</li>
     <li><strong>Optional — real outbound callbacks</strong>: create a second agent
         ("Paayal Callbacks"), no API tools, variables <code>customer_name</code>,
         <code>callback_reason</code>, <code>what</code>, <code>request_ref</code>,

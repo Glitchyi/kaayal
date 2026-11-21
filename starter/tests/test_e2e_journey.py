@@ -658,10 +658,11 @@ async def test_s10_public_site_and_meta(client):
     for path, frag in {
         "/paayal": "#paayal", "/boats": "#boats", "/explore": "#explore",
         "/before-you-book": "#before-you-book",
-        "/dtpc-houseboat-counter": "#dtpc", "/faq": "#faq", "/privacy": "#privacy",
+        "/dtpc-houseboat-counter": "#dtpc", "/faq": "#faq",
     }.items():
         r = await client.get(path, follow_redirects=False)
         assert r.status_code == 301 and r.headers["location"].endswith(frag)
+    assert (await client.get("/privacy")).status_code == 200
     robots = await client.get("/robots.txt")
     assert "Disallow: /admin" in robots.text and "Disallow: /api" in robots.text
     sitemap = await client.get("/sitemap.xml")

@@ -165,10 +165,11 @@ async def test_admin_lists_callbacks_and_attempts(app, client):
     assert r.status_code == 200
     assert "CB-0001-ab12" in r.text
     assert "Anu" in r.text
-    assert "operator_unreachable" in r.text
+    assert "Operator was unreachable" in r.text  # reason shown in plain words
     assert "queued" in r.text
     assert "1/2" in r.text
-    assert "no_answer" in r.text
+    assert "no answer" in r.text  # attempt outcome, underscores dropped
+    assert "IST" in r.text
     assert "simulator" in r.text
     # active callback gets a cancel action
     assert f"/admin/callbacks/{cb.id}/cancel" in r.text
