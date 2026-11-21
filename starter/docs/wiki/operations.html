@@ -58,7 +58,7 @@ bash scripts/smoke.sh http://localhost:8000 "$SARVAM_TOOL_SHARED_SECRET"</code><
   tunnel (<code>cloudflared tunnel --url …</code>, ngrok, Tailscale Funnel)
   works for dev; update <code>KAAYAL_PUBLIC_BASE_URL</code> and the Sarvam tool
   URLs when it changes.</p>
-  <p class="small muted">Canonical runbook: <a href="../run-local-and-tunnel.md">docs/run-local-and-tunnel.md</a></p>
+  <p class="small muted">Canonical runbook: <a href="https://github.com/Glitchyi/kaayal/blob/main/starter/docs/run-local-and-tunnel.md">docs/run-local-and-tunnel.md</a></p>
 
   <h2 id="env">Environment</h2>
   <table>
@@ -92,9 +92,30 @@ bash scripts/smoke.sh http://localhost:8000 "$SARVAM_TOOL_SHARED_SECRET"</code><
         Malayalam and English — general question, boat question, test request.</li>
   </ol>
   <p class="small muted">Full steps, exact request bodies and the Paayal prompt:
-  <a href="../sarvam-dashboard-setup.md">docs/sarvam-dashboard-setup.md</a></p>
+  <a href="https://github.com/Glitchyi/kaayal/blob/main/starter/docs/sarvam-dashboard-setup.md">docs/sarvam-dashboard-setup.md</a></p>
 
   <h2 id="onboard">Onboard an operator (~2 min)</h2>
+  <figure class="diagram">
+    <iframe src="hairline-onboarding.html?theme=light&amp;play=1" title="Operator onboarding flow — six mooring posts, one per stage; the pointer's post rises and the boat glides to it" loading="lazy" style="display:block;width:100%;height:44rem;border:0"></iframe>
+    <figcaption>Six mooring posts, one per onboarding stage. The boat plays
+    the journey end to end — <strong>dm → form → review → approve → boats →
+    live</strong> — until you hover a post yourself; then it moors at the one
+    you pick and the read-out names the stage.
+    <a href="hairline-onboarding.html">Open the figure full page →</a>
+    (interactive <a href="https://github.com/lucasmarkes/hairline">hairline</a>
+    figure; source at <code>src/onboarding.js</code>)</figcaption>
+  </figure>
+  <table>
+    <thead><tr><th>Post</th><th>Stage</th><th>What happens</th></tr></thead>
+    <tbody>
+      <tr><td>01</td><td><code>dm</code></td><td>Operator DMs the Kaayal WhatsApp number (+91 9400354625) — or the owner adds them directly in <code>/admin</code>, skipping to approve.</td></tr>
+      <tr><td>02</td><td><code>form</code></td><td>wa-bot collects name → boat name → embarkation, then <code>POST /api/ops/wa_onboard</code>.</td></tr>
+      <tr><td>03</td><td><code>review</code></td><td>Operator + boat created, <code>approved_at=NULL</code> — pending; no portal access yet.</td></tr>
+      <tr><td>04</td><td><code>approve</code></td><td>Owner clicks <strong>Approve</strong> in <code>/admin</code> → portal link pushed back over WhatsApp. Link <em>is</em> the login; reissue kills the old one instantly.</td></tr>
+      <tr><td>05</td><td><code>boats</code></td><td>Operator adds boats in the portal — each lands <span class="badge wait">pending verification</span>, invisible to callers.</td></tr>
+      <tr><td>06</td><td><code>live</code></td><td>Owner <strong>Verify</strong> in <code>/admin</code> → live on the site and in <code>list_boats</code>; requests reach the portal, <strong>Confirm</strong> reveals the customer's contact.</td></tr>
+    </tbody>
+  </table>
   <ol class="flow">
     <li><code>/admin?t=…</code> → <strong>Add operator</strong> → copy the
         one-time portal link. The link <em>is</em> their access.</li>
@@ -106,7 +127,7 @@ bash scripts/smoke.sh http://localhost:8000 "$SARVAM_TOOL_SHARED_SECRET"</code><
         customer's contact for a direct call-back. Lost link →
         <strong>Reissue</strong> in admin (old link dies instantly).</li>
   </ol>
-  <p class="small muted">Canonical runbook: <a href="../operator-onboarding.md">docs/operator-onboarding.md</a></p>
+  <p class="small muted">Canonical runbook: <a href="https://github.com/Glitchyi/kaayal/blob/main/starter/docs/operator-onboarding.md">docs/operator-onboarding.md</a></p>
 
   <h2 id="demo">Demo script</h2>
   <p><code>/admin</code> → <strong>Seed demo data</strong> creates two clearly
@@ -122,7 +143,7 @@ bash scripts/smoke.sh http://localhost:8000 "$SARVAM_TOOL_SHARED_SECRET"</code><
     </tbody>
   </table>
   <p class="small muted">Full script incl. what's real vs simulated:
-  <a href="../demo-runbook.md">docs/demo-runbook.md</a></p>
+  <a href="https://github.com/Glitchyi/kaayal/blob/main/starter/docs/demo-runbook.md">docs/demo-runbook.md</a></p>
 
   <h2 id="wa">WhatsApp sidecar (demo only)</h2>
   <pre><code>cd starter/wa-bot
@@ -136,12 +157,12 @@ npm install && npm start     # prints a QR — pair it on the +91 9400354625 pho
     unofficial, ban-able, dies when the paired phone is offline. Production
     WhatsApp Business API is explicitly deferred.</p>
   </div>
-  <p class="small muted">Canonical runbook: <a href="../wa-demo.md">docs/wa-demo.md</a></p>
+  <p class="small muted">Canonical runbook: <a href="https://github.com/Glitchyi/kaayal/blob/main/starter/docs/wa-demo.md">docs/wa-demo.md</a></p>
 
   <hr class="rule">
   <p class="small">Governance — what may not be built without owner approval:
-  <a href="../REVIEW_DECISIONS.md">docs/REVIEW_DECISIONS.md</a> ·
-  <a href="../PHASE2_CLARIFICATIONS.md">docs/PHASE2_CLARIFICATIONS.md</a> ·
+  <a href="https://github.com/Glitchyi/kaayal/blob/main/starter/docs/REVIEW_DECISIONS.md">docs/REVIEW_DECISIONS.md</a> ·
+  <a href="https://github.com/Glitchyi/kaayal/blob/main/starter/docs/PHASE2_CLARIFICATIONS.md">docs/PHASE2_CLARIFICATIONS.md</a> ·
   <code>starter/AGENTS.md</code>.</p>
 
   <footer class="colophon">
