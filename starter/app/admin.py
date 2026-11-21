@@ -26,6 +26,45 @@ def _check_admin(request: Request, t: str | None) -> str:
     return t
 
 
+def _admin_nav() -> str:
+    return (
+        '<nav class="topnav" aria-label="Admin">'
+        '<a class="wordmark" href="/">Kaayal <span class="ml" lang="ml">കായൽ</span></a>'
+        '<span class="muted small">owner admin</span>'
+        '<a class="navlink" href="/">← Back to site</a>'
+        '</nav>'
+    )
+
+
+# Friendly labels for machine `source` values — rendered as muted text,
+# not badges (badges are reserved for product status).
+_SRC = {
+    "admin": "admin", "wa-demo": "whatsapp",
+    "operator-submitted": "operator", "owner-verified": "owner",
+    "voice": "call", "callback": "callback",
+}
+
+
+def _src(s: str | None) -> str:
+    return f'<span class="muted small">{_esc(_SRC.get(s, s or "—"))}</span>'
+
+
+# Whitelisted post-action notices (redirect → ?done=<key>#section).
+_DONE = {
+    "boat_verified": "Boat verified — it's now listed for callers.",
+    "op_deactivated": "Operator deactivated.",
+    "op_reactivated": "Operator reactivated.",
+    "cb_cancelled": "Callback cancelled.",
+    "cbs_ran": "Due callbacks processed — results are in the queue below.",
+    "demo_seeded": "Demo data seeded.",
+    "demo_cleared": "Demo data cleared.",
+}
+
+
+def _done_url(t: str, key: str, anchor: str) -> str:
+    return f"/admin?t={t}&done={key}#{anchor}"
+
+
 def _portal_link_page(title: str, name: str, url: str, t: str, note: str) -> HTMLResponse:
     """One-time display of a raw portal URL — the only place a token is ever shown."""
     body = f"""
@@ -46,21 +85,29 @@ def _fmt_dt(dt) -> str:
 
 def _op_row(o: Operator, t: str) -> str:
     badge = '<span class="badge ok">active</span>' if o.active else '<span class="badge bad">inactive</span>'
-    approve = ""
+    actions = []
     if o.approved_at is None:
         badge += f" {_status_badge('pending approval')}"
-        approve = (
+        actions.append(
             f"<form class=inline method=post action='/admin/operators/{o.id}/approve?t={t}'>"
-            f"<button>Approve</button></form> "
+            f"<button>Approve</button></form>"
+        )
+    else:
+        # Portal links only work once approved_at is set — reissue before
+        # approval would mint a link that 404s.
+        actions.append(
+            f"<form class=inline method=post action='/admin/operators/{o.id}/reissue?t={t}'>"
+            f"<button class=secondary>Reissue link</button></form>"
         )
     verb, label, cls = ("deactivate", "Deactivate", "danger") if o.active else ("reactivate", "Reactivate", "secondary")
-    return (
-        f"<tr><td>{o.id}</td><td>{_esc(o.name)}</td><td>{_esc(o.phone)}</td>"
-        f"<td>{_status_badge(o.source)}</td><td>{badge}</td>"
-        f"<td>{approve}<form class=inline method=post action='/admin/operators/{o.id}/reissue?t={t}'>"
-        f"<button class=secondary>Reissue link</button></form> "
+    actions.append(
         f"<form class=inline method=post action='/admin/operators/{o.id}/{verb}?t={t}'>"
-        f"<button class={cls}>{label}</button></form></td></tr>"
+        f"<button class={cls}>{label}</button></form>"
+    )
+    return (
+        f"<tr><td>{o.id}</td><td>{_esc(o.name)}</td><td class=small>{_esc(o.phone)}</td>"
+        f"<td>{_src(o.source)}</td><td>{badge}</td>"
+        f"<td class=actions>{''.join(actions)}</td></tr>"
     )
 
 
@@ -76,10 +123,10 @@ def _cb_rows(cbs: list[CallbackRequest], attempts: dict[int, list[CallbackAttemp
         out.append(
             f"<tr><td>{_esc(cb.public_id)}</td>"
             f"<td>{_esc(cb.customer_name)}<br><span class='muted small'>{_esc(cb.customer_phone)}</span></td>"
-            f"<td>{_status_badge(cb.reason)}</td><td>{_status_badge(cb.status)}</td>"
+            f"<td class=small>{_esc(cb.reason)}</td><td>{_status_badge(cb.status)}</td>"
             f"<td>{cb.attempts_this_trigger}/{_CB_MAX_ATTEMPTS}</td>"
             f"<td class=small>{_fmt_dt(cb.next_attempt_at)}</td>"
-            f"<td class=small>{_fmt_dt(cb.expires_at)}</td><td>{actions}</td></tr>"
+            f"<td class=small>{_fmt_dt(cb.expires_at)}</td><td class=actions>{actions}</td></tr>"
         )
         att = attempts.get(cb.id, [])
         if att:
@@ -92,7 +139,7 @@ def _cb_rows(cbs: list[CallbackRequest], attempts: dict[int, list[CallbackAttemp
 
 
 @router.get("", response_class=HTMLResponse)
-def admin_home(request: Request, t: str | None = None):
+def admin_home(request: Request, t: str | None = None, done: str | None = None):
     _check_admin(request, t)
     engine = request.app.state.engine
     with Session(engine) as session:
@@ -107,54 +154,84 @@ def admin_home(request: Request, t: str | None = None):
     op_rows = "".join(_op_row(o, t) for o in operators) or "<tr><td colspan=6>No operators yet.</td></tr>"
 
     boat_rows = "".join(
-        f"<tr><td>{b.id}</td><td>{_esc(b.name)}</td><td>{_esc(op)}</td>"
+        f"<tr><td>{b.id}</td><td>{_esc(b.name)}</td>"
+        f"<td class=small>{_esc(b.boat_type or '—')}</td>"
+        f"<td class=small>{_esc(b.embarkation_point or '—')}</td>"
+        f"<td class=small>{_esc(op)}</td>"
+        f"<td>{_status_badge('available' if b.available else 'unavailable')}</td>"
         f"<td>{_status_badge('verified') if b.verified_at else _status_badge('unverified')}</td>"
-        f"<td>{'' if b.verified_at else f'<form class=inline method=post action=/admin/boats/{b.id}/verify?t={t}><button>Verify</button></form>'}</td></tr>"
+        f"<td class=actions>{'' if b.verified_at else f'<form class=inline method=post action=/admin/boats/{b.id}/verify?t={t}><button>Verify</button></form>'}</td></tr>"
         for b, op in boats
-    ) or "<tr><td colspan=5>No boats.</td></tr>"
+    ) or "<tr><td colspan=8>No boats.</td></tr>"
 
-    req_rows = "".join(
-        f"<tr><td>{_esc(r.public_id)}</td><td>{_esc(r.customer_name)}</td><td>{_esc(r.customer_phone)}</td>"
-        f"<td>boat #{r.boat_id or '— triage'}</td><td>{_esc(r.preferred_date)}</td>"
-        f"<td>{_esc(str(r.group_size)) if r.group_size else '—'}</td><td>{_status_badge(r.source)}</td>"
-        f"<td class='muted small'>{_esc(r.operator_note) if r.operator_note else '—'}</td>"
-        f"<td>{_status_badge(r.status)}</td></tr>"
-        for r in requests
-    ) or "<tr><td colspan=9>No requests.</td></tr>"
+    def _req_row(r: BookingRequest) -> str:
+        boat = f"boat #{r.boat_id}" if r.boat_id else '<span class="muted small">— triage</span>'
+        return (
+            f"<tr><td>{_esc(r.public_id)}</td>"
+            f"<td>{_esc(r.customer_name)}<br><span class='muted small'>{_esc(r.customer_phone)}</span></td>"
+            f"<td class=small>{boat}</td><td class=small>{_esc(r.preferred_date)}</td>"
+            f"<td>{_esc(str(r.group_size)) if r.group_size else '—'}</td><td>{_src(r.source)}</td>"
+            f"<td class='muted small'>{_esc(r.operator_note) if r.operator_note else '—'}</td>"
+            f"<td>{_status_badge(r.status)}</td></tr>"
+        )
+
+    req_rows = "".join(_req_row(r) for r in requests) or "<tr><td colspan=8>No requests.</td></tr>"
 
     cb_rows = _cb_rows(cbs, attempts_by_cb, t)
+
+    # Triage ledger — the owner's actionable queue, hidden when everything is handled.
+    pending_ops = sum(1 for o in operators if o.approved_at is None)
+    unverified = sum(1 for b, _ in boats if b.verified_at is None)
+    triage = sum(1 for r in requests if r.boat_id is None and r.status == "pending")
+    active_cbs = sum(1 for c in cbs if c.status in _CB_ACTIVE)
+    ledger_items = []
+    if pending_ops:
+        ledger_items.append(f'<li><a href="#ops">{pending_ops} operator{"s" if pending_ops != 1 else ""} awaiting approval</a></li>')
+    if unverified:
+        ledger_items.append(f'<li><a href="#boats">{unverified} boat{"s" if unverified != 1 else ""} awaiting verification</a></li>')
+    if triage:
+        ledger_items.append(f'<li><a href="#requests">{triage} unassigned request{"s" if triage != 1 else ""} (no boat picked)</a></li>')
+    if active_cbs:
+        ledger_items.append(f'<li><a href="#callbacks">{active_cbs} callback{"s" if active_cbs != 1 else ""} in the queue</a></li>')
+    ledger = ""
+    if ledger_items:
+        ledger = f'<div class="card"><h3>Needs attention</h3><ul class="small" style="margin:.35rem 0 0;padding-left:1.15rem">{"".join(ledger_items)}</ul></div>'
+
+    notice = f'<div class="notice" role="status">{_DONE[done]}</div>' if done in _DONE else ""
 
     body = f"""
 <h1>Owner admin</h1>
 <p class=muted>Operators, listings, every booking request, and the callback queue.</p>
-<h2>Operators</h2>
-<table><thead><tr><th>#</th><th>Name</th><th>Phone</th><th>Source</th><th>Status</th><th>Actions</th></tr></thead><tbody>{op_rows}</tbody></table>
+{notice}
+{ledger}
+<h2 id="ops">Operators</h2>
+<div class=tablewrap><table><thead><tr><th>#</th><th>Name</th><th>Phone</th><th>Source</th><th>Status</th><th>Actions</th></tr></thead><tbody>{op_rows}</tbody></table></div>
 <div class=card>
 <h3>Add operator</h3>
 <form method=post action='/admin/operators?t={t}'>
 <label for='op-name'>Operator name</label>
 <input id='op-name' name=name placeholder='e.g. Raj Boat Service' required maxlength=120 autocomplete=off>
 <label for='op-phone'>Phone</label>
-<input id='op-phone' name=phone type=tel placeholder='+91…' required maxlength=32>
+<input id='op-phone' name=phone type=tel inputmode=tel placeholder='+91…' required maxlength=32>
 <div style='margin-top:1rem'><button type=submit>Create + get portal link</button></div>
 </form>
 </div>
-<h2>Boats</h2>
-<table><thead><tr><th>#</th><th>Name</th><th>Operator</th><th>Status</th><th></th></tr></thead><tbody>{boat_rows}</tbody></table>
-<h2>All booking requests</h2>
-<table><thead><tr><th>ID</th><th>Customer</th><th>Phone</th><th>Boat</th><th>Date</th><th>Group</th><th>Source</th><th>Operator note</th><th>Status</th></tr></thead><tbody>{req_rows}</tbody></table>
-<h2>Callbacks</h2>
+<h2 id="boats">Boats</h2>
+<div class=tablewrap><table><thead><tr><th>#</th><th>Name</th><th>Type</th><th>Boarding</th><th>Operator</th><th>Booking</th><th>Status</th><th>Actions</th></tr></thead><tbody>{boat_rows}</tbody></table></div>
+<h2 id="requests">All booking requests</h2>
+<div class=tablewrap><table><thead><tr><th>ID</th><th>Customer</th><th>Boat</th><th>Date</th><th>Group</th><th>Source</th><th>Operator note</th><th>Status</th></tr></thead><tbody>{req_rows}</tbody></table></div>
+<h2 id="callbacks">Callbacks</h2>
 <p class=muted>Customers Paayal rings back — calls go out 09:00–18:00 IST, max {_CB_MAX_ATTEMPTS} tries per trigger.</p>
 <form class=inline method=post action='/admin/callbacks/run_due?t={t}'><button class=secondary>Run due callbacks now</button></form>
-<table><thead><tr><th>ID</th><th>Customer</th><th>Reason</th><th>Status</th><th>Tries</th><th>Next attempt</th><th>Expires</th><th></th></tr></thead><tbody>{cb_rows}</tbody></table>
-<h2>Demo data</h2>
+<div class=tablewrap><table><thead><tr><th>ID</th><th>Customer</th><th>Reason</th><th>Status</th><th>Tries</th><th>Next attempt</th><th>Expires</th><th>Actions</th></tr></thead><tbody>{cb_rows}</tbody></table></div>
+<h2 id="demo">Demo data</h2>
 <div class=card>
 <p class="muted small">Clearly-labeled demo inventory for walkthroughs. Seeding is idempotent; clearing removes the demo rows and their requests/callbacks.</p>
 <form class=inline method=post action='/admin/demo/seed?t={t}'><button class=secondary>Seed demo data</button></form>
 <form class=inline method=post action='/admin/demo/clear?t={t}'><button class=danger>Clear demo data</button></form>
 </div>
 """
-    return HTMLResponse(_page("Kaayal admin", body, description="Kaayal owner admin"))
+    return HTMLResponse(_page("Kaayal admin", body, description="Kaayal owner admin", nav=_admin_nav(), body_class="wide"))
 
 
 @router.post("/operators", response_class=HTMLResponse)
@@ -214,7 +291,7 @@ def _set_operator_active(op_id: int, active: bool, request: Request, t: str | No
             raise HTTPException(status_code=404, detail="not_found")
         op.active = active
         session.commit()
-    return RedirectResponse(f"/admin?t={t}", status_code=303)
+    return RedirectResponse(_done_url(t, "op_reactivated" if active else "op_deactivated", "ops"), status_code=303)
 
 
 @router.post("/boats/{boat_id}/verify")
@@ -236,7 +313,7 @@ def verify_boat(boat_id: int, request: Request, t: str | None = None):
             if op and op.active:
                 fire_boat_available(session, boat)
         session.commit()
-    return RedirectResponse(f"/admin?t={t}", status_code=303)
+    return RedirectResponse(_done_url(t, "boat_verified", "boats"), status_code=303)
 
 
 @router.post("/operators/{op_id}/approve", response_class=HTMLResponse)
@@ -277,7 +354,7 @@ def cancel_callback(cb_id: int, request: Request, t: str | None = None):
         cb.status = "opted_out"
         cb.updated_at = utcnow()
         session.commit()
-    return RedirectResponse(f"/admin?t={t}", status_code=303)
+    return RedirectResponse(_done_url(t, "cb_cancelled", "callbacks"), status_code=303)
 
 
 @router.post("/callbacks/run_due")
@@ -292,7 +369,7 @@ def run_due_callbacks(request: Request, t: str | None = None):
         ignore_window=request.app.state.settings.demo_ignore_call_window,
         settings=request.app.state.settings,
     )
-    return RedirectResponse(f"/admin?t={t}", status_code=303)
+    return RedirectResponse(_done_url(t, "cbs_ran", "callbacks"), status_code=303)
 
 
 # (name, phone, reachable, boats[(name, available, price_display, amenities)])
@@ -329,7 +406,7 @@ def seed_demo_data(request: Request, t: str | None = None):
                     verified_at=utcnow(), source="demo-seed",
                 ))
         session.commit()
-    return RedirectResponse(f"/admin?t={t}", status_code=303)
+    return RedirectResponse(_done_url(t, "demo_seeded", "demo"), status_code=303)
 
 
 @router.post("/demo/clear")
@@ -356,4 +433,4 @@ def clear_demo_data(request: Request, t: str | None = None):
         for o in demo_ops:
             session.delete(o)
         session.commit()
-    return RedirectResponse(f"/admin?t={t}", status_code=303)
+    return RedirectResponse(_done_url(t, "demo_cleared", "demo"), status_code=303)

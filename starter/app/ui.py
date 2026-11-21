@@ -58,6 +58,14 @@ body {{
   line-height: 1.6;
   font-size: 1.0625rem;
 }}
+body.wide {{ max-width: 62rem; }}
+.tablewrap {{ overflow-x: auto; }}
+.notice {{
+  border: 1px solid var(--line); border-left: 3px solid var(--teal);
+  border-radius: .25rem; padding: .55rem 1rem; margin: 1rem 0;
+  background: color-mix(in srgb, var(--teal) 8%, var(--ivory));
+  font-size: .95rem;
+}}
 .skip {{
   position: absolute; left: -9999px; top: 0;
   background: var(--lagoon); color: var(--ivory); padding: .5rem 1rem; z-index: 10;
@@ -127,6 +135,9 @@ ol ::marker {{ color: var(--teal); font-family: {DISPLAY_FONT}; }}
 }}
 html {{ scroll-behavior: smooth; }}
 section[id] {{ scroll-margin-top: 5.5rem; margin-top: 3.25rem; }}
+h2[id] {{ scroll-margin-top: 4.5rem; }}
+td.actions {{ white-space: nowrap; }}
+td.actions form.inline button {{ min-height: 2.5rem; padding: .35rem .8rem; font-size: .85rem; margin: .1rem .3rem .1rem 0; }}
 @keyframes ping {{
   0% {{ box-shadow: 0 0 0 0 rgba(38, 122, 115, .32); }}
   100% {{ box-shadow: 0 0 0 20px rgba(38, 122, 115, 0); }}
@@ -245,7 +256,7 @@ try {
 def page(title: str, body: str, description: str = "",
          nav: str = "", footer: str = "",
          canonical_url: str = "", head_extra: str = "",
-         og_image: str = "") -> str:
+         og_image: str = "", body_class: str = "") -> str:
     """Full HTML page shell. Caller must escape dynamic content via esc().
 
     `nav` renders before <main>, `footer` after it — both are trusted HTML
@@ -269,12 +280,14 @@ def page(title: str, body: str, description: str = "",
             f'<meta property="og:url" content="{u}">'
             f"{img}{desc_og}"
         )
+    body_attr = f' class="{html.escape(body_class)}"' if body_class else ""
     return (
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
         "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
         f'<meta name="theme-color" content="{IVORY}">{desc}{canon}'
         f"<title>{html.escape(title)}</title>{_FAVICON}{_FONT_LINKS}{head_extra}"
-        f"<style>{CSS}</style></head><body>"
+        f"<style>{CSS}</style></head>"
+        f"<body{body_attr}>"
         '<a class="skip" href="#main">Skip to content</a>'
         f'{nav}<main id="main" tabindex="-1">{body}</main>{footer}{_MOTION}</body></html>'
     )
